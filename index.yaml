@@ -1,0 +1,43 @@
+apiVersion: v1
+entries:
+  k2hdkc:
+  - annotations:
+      artifacthub.io/changes: |
+        - Initial Commit and publishing
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2022-02-09T06:51:59.776330926Z"
+    description: K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster)
+      Database as a Service on Kubernetes
+    digest: 6e91363a180db84a5d36d6c12ccf9de83d29fec5ce7607e595fbe9168325fbc6
+    home: https://dbaas.k2hdkc.antpick.ax/
+    icon: https://antpick.ax/images/antpickax_circle_512x512.png
+    keywords:
+    - K2HDKC
+    - NOSQL
+    - KVS
+    - DBaaS
+    - Distributes
+    - Database
+    - Queue
+    - AntPickax
+    - Helm
+    - kubernetes
+    - K2HR3
+    - K2HASH
+    - CHMPX
+    - In-memory
+    kubeVersion: '>=v1.20'
+    maintainers:
+    - email: ggtakec@gmail.com
+      name: Takeshi Nakatani
+    - email: hiwakaba@yahoo-corp.jp
+      name: Hirotaka Wakabayashi
+    name: k2hdkc
+    sources:
+    - https://github.com/yahoojapan/k2hdkc_helm_chart
+    type: application
+    urls:
+    - https://github.com/yahoojapan/k2hdkc_helm_chart/releases/download/v1.0.0/k2hdkc-1.0.0.tgz
+    version: 1.0.0
+generated: "2022-02-09T06:51:59.77286176Z"
