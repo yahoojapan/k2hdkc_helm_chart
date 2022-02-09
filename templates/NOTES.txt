@@ -1,0 +1,92 @@
+-----------------------------------------------------------------
+                     CONGRATULATIONS!
+
+The {{ include "k2hdkc.clusterName" . }} K2HDKC Cluster has been started.
+
+[1] About upgrade
+    If you want to change the configuration of K2HDKC Cluster,
+    please do the following:
+
+        $ helm upgrade {{ include "k2hdkc.clusterName" . }} {{ include "k2hdkc.name" . }} \
+          { --set <key>=<value> .... }
+
+    Change the value of the variable you want to change, and specify the
+    other variables that are the same as when you executed "helm install".
+
+[2] Destroy {{ include "k2hdkc.clusterName" . }} K2HDKC Cluster
+    To destroy the K2HDKC Cluster, do the following:
+    (See "[3] Destroy the data in {{ include "k2hdkc.k2hr3ClusterName" . }} K2HR3 Cluster".)
+
+        $ helm uninstall {{ include "k2hdkc.clusterName" . }}
+
+    After executing the above command, the following kubernetes
+    resources will be remained.
+
+        ConfigMap : configmap-{{ include "k2hdkc.clusterName" . }}
+        Secret    : secret-{{ include "k2hdkc.clusterName" . }}-k2hr3-token
+
+    To remove them completely, run the following command:
+
+        $ kubectl delete configmap configmap-{{ include "k2hdkc.clusterName" . }}
+        $ kubectl delete secret secret-{{ include "k2hdkc.clusterName" . }}-k2hr3-token
+
+[3] Destroy the data in {{ include "k2hdkc.k2hr3ClusterName" . }} K2HR3 Cluster
+
+    Data dedicated to the {{ include "k2hdkc.clusterName" . }} K2HDKC Cluster is registered
+    in the {{ include "k2hdkc.k2hr3ClusterName" . }} K2HR3 Cluster.
+    Executing the "helm uninstall" command will automatically try
+    to delete these data.
+
+    When you executed "helm install", you should have specified
+    the Unscoped Token("k2hr3.unscopedToken" variable) of the
+    {{ include "k2hdkc.k2hr3ClusterName" . }} K2HR3 Cluster.
+
+    If this Unscoped Token has not expired, the data deletion
+    will be successful.
+    If the Unscoped Token has expired(usually 24H), you can avoid
+    the data deletion failure by updating this Unscoped Token
+    before executing "helm uninstall".
+
+    You can update the UnscopedToken in the following two ways:
+
+    * One is to use helm upgrade:
+      Execute "helm upgrade" to update "k2hr3.unscopedToken".
+      (Remember to specify other variables: "[1] About upgrade")
+
+      $ helm upgrade {{ include "k2hdkc.clusterName" . }} {{ include "k2hdkc.name" . }} \
+        --set k2hr3.unscopedToken=<new unscoped token> \
+        { --set <key>=<value> .... }
+
+    * The other is to update the kubernetes secret resource
+      (secret-{{ include "k2hdkc.clusterName" . }}-K2hr3-token) directly.
+      Prepare following yaml file(secret.yaml) for secret.
+
+      ---------
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: secret-{{ include "k2hdkc.clusterName" . }}-k2hr3-token
+        namespace: default
+        annotations:
+          helm.sh/hook: pre-install,pre-upgrade
+          helm.sh/hook-delete-policy: before-hook-creation
+          helm.sh/hook-weight: "-1"
+      type: Opaque
+      data:
+        unscopedToken: "<new unscoped token encoded by base64>"
+      ---------
+
+      Use this yaml file to update the kubernetes Secret directly.
+
+      $ kubectl apply -f secret.yaml
+
+    Update the kubernetes Secret(secret-{{ include "k2hdkc.clusterName" . }}-k2hr3-token)
+    for the Unscoped Token using one of the above methods.
+
+    After updating it, you can execute "helm uninstall" to destroy
+    the data of {{ include "k2hdkc.k2hr3ClusterName" . }} K2HR3 Cluster.
+
+    If you cannot discard the data of {{ include "k2hdkc.k2hr3ClusterName" . }} K2HR3 Cluster,
+    please access K2HR3 Web Application and delete the ROLE /
+    RESOURCE / POLICY directly.
+

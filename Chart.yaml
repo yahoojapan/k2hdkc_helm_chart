@@ -1,0 +1,65 @@
+#
+# K2HDKC DBaaS Helm Chart
+#
+# Copyright 2022 Yahoo! Japan Corporation.
+#
+# K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+# which is built K2HR3 as a backend and provides services in
+# cooperation with Kubernetes.
+# The Override configuration for K2HDKC DBaaS serves to connect the
+# components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+# and K2HASH are components provided as AntPickax.
+#
+# For the full copyright and license information, please view
+# the license file that was distributed with this source code.
+#
+# AUTHOR:   Takeshi Nakatani
+# CREATE:   Fri Jan 21 2021
+# REVISION:
+#
+
+apiVersion: v2
+name: k2hdkc
+description: |-
+   K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster) Database as a Service on Kubernetes
+type: application
+appVersion: "1.0.0"
+kubeVersion: ">=v1.20"
+maintainers:
+  - name: "Takeshi Nakatani"
+    email: ggtakec@gmail.com
+  - name: "Hirotaka Wakabayashi"
+    email: hiwakaba@yahoo-corp.jp
+sources:
+  - https://github.com/yahoojapan/k2hdkc_helm_chart
+keywords:
+  - K2HDKC
+  - NOSQL
+  - KVS
+  - DBaaS
+  - Distributes
+  - Database
+  - Queue
+  - AntPickax
+  - Helm
+  - kubernetes
+  - K2HR3
+  - K2HASH
+  - CHMPX
+  - In-memory
+home: https://dbaas.k2hdkc.antpick.ax/
+icon: https://antpick.ax/images/antpickax_circle_512x512.png
+deprecated: false
+version: 1.0.0
+annotations:
+  artifacthub.io/changes: |
+    - FROM_CHANGELOGMD_CONTENT
+
+#
+# Local variables:
+# tab-width: 4
+# c-basic-offset: 4
+# End:
+# vim600: noexpandtab sw=4 ts=4 fdm=marker
+# vim<600: noexpandtab sw=4 ts=4
+#

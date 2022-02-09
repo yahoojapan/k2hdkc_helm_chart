@@ -1,0 +1,104 @@
+{{-
+/*
+*
+* K2HDKC DBaaS Helm Chart
+*
+* Copyright 2022 Yahoo! Japan Corporation.
+*
+* K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+* which is built K2HR3 as a backend and provides services in
+* cooperation with Kubernetes.
+* The Override configuration for K2HDKC DBaaS serves to connect the
+* components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+* and K2HASH are components provided as AntPickax.
+*
+* For the full copyright and license information, please view
+* the license file that was distributed with this source code.
+*
+* AUTHOR:   Takeshi Nakatani
+* CREATE:   Fri Jan 21 2021
+* REVISION:
+*
+*/ -}}
+
+{{-
+/*---------------------------------------------------------
+* This JOB service clear the data(RESOURCE/POLICY/ROLE) from
+* K2HR3 cluster. This is executed prior to other services and
+* clear the K2HR3 data required for K2HDKC DBaaS.
+*
+*/ -}}
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dbaas-{{ include "k2hdkc.clusterName" . }}-unsetup-k2hr3
+  annotations:
+    helm.sh/hook: post-delete
+    helm.sh/hook-delete-policy: hook-succeeded,hook-failed
+    helm.sh/hook-weight: "0"
+
+spec:
+  ttlSecondsAfterFinished: 30
+  completions: 1
+  parallelism: 1
+  backoffLimit: 0
+  template:
+    spec:
+      volumes:
+        - name: configmap-{{ include "k2hdkc.clusterName" . }}
+          configMap:
+            name: configmap-{{ include "k2hdkc.clusterName" . }}
+            items:
+              - key: dbaas-unsetup-k2hr3-data.sh
+                path: dbaas-unsetup-k2hr3-data.sh
+        - name: secret-k2hr3-ca-{{ include "k2hdkc.k2hr3ClusterName" . }}
+          secret:
+            secretName: secret-k2hr3-ca-{{ include "k2hdkc.k2hr3ClusterName" . }}
+        - name: secret-{{ include "k2hdkc.clusterName" . }}-k2hr3-token
+          secret:
+            secretName: secret-{{ include "k2hdkc.clusterName" . }}-k2hr3-token
+
+      containers:
+      - name: unsetup-k2hr3-{{ include "k2hdkc.clusterName" . }}-job
+        image: alpine:3.13.5
+        env:
+          - name: K2HR3_API_URL
+            value: "https://{{ include "k2hdkc.r3apiIntSvcFullname" . }}:{{ include "k2hdkc.r3apiIntPort" . }}"
+          - name: K2HR3_TENANT
+            value: "{{ include "k2hdkc.k8sNamespace" . }}"
+          - name: SEC_CA_MOUNTPOINT
+            value: "{{ .Values.mountPoint.ca }}"
+          - name: SEC_K2HR3_TOKEN_MOUNTPOINT
+            value: "{{ .Values.mountPoint.k2hr3Token }}"
+          - name: SEC_UTOKEN_FILENAME
+            value: "unscopedToken"
+          - name: K2HDKC_CLUSTER_NAME
+            value: "{{ include "k2hdkc.clusterName" . }}"
+
+        volumeMounts:
+          - mountPath: {{ .Values.mountPoint.configMap }}
+            name: configmap-{{ include "k2hdkc.clusterName" . }}
+            readOnly: true
+          - mountPath: {{ .Values.mountPoint.ca }}
+            name: secret-k2hr3-ca-{{ include "k2hdkc.k2hr3ClusterName" . }}
+            readOnly: true
+          - mountPath: {{ .Values.mountPoint.k2hr3Token }}
+            name: secret-{{ include "k2hdkc.clusterName" . }}-k2hr3-token
+            readOnly: true
+
+        command: ["/bin/sh"]
+        args: ["{{ .Values.mountPoint.configMap }}/dbaas-unsetup-k2hr3-data.sh"]
+      restartPolicy: Never
+  backoffLimit: 0
+
+{{-
+/*
+* Local variables:
+* tab-width: 4
+* c-basic-offset: 4
+* End:
+* vim600: noexpandtab sw=4 ts=4 fdm=marker
+* vim<600: noexpandtab sw=4 ts=4
+*/ -}}

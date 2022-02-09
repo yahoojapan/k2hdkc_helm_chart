@@ -1,0 +1,195 @@
+#
+# K2HDKC DBaaS Helm Chart
+#
+# Copyright 2022 Yahoo! Japan Corporation.
+#
+# K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+# which is built K2HR3 as a backend and provides services in
+# cooperation with Kubernetes.
+# The Override configuration for K2HDKC DBaaS serves to connect the
+# components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+# and K2HASH are components provided as AntPickax.
+#
+# For the full copyright and license information, please view
+# the license file that was distributed with this source code.
+#
+# AUTHOR:   Takeshi Nakatani
+# CREATE:   Fri Jan 21 2021
+# REVISION:
+#
+
+#---------------------------------------------------------
+# Default values for k2hdkc.
+# This is a YAML formatted file.
+#---------------------------------------------------------
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using
+  # the fullname template
+  name: ""
+
+#---------------------------------------------------------
+# Common Variables
+#
+#	antpickax
+#		configDir		Specifies Antpickax common configuration
+#						directory(ex. /etc/antpickax)
+#		certPeriodYear	Specify years for expire certificate
+#
+antpickax:
+  configDir: /etc/antpickax
+  certPeriodYear: 5
+
+#---------------------------------------------------------
+# Variables for K2HDKC DBaaS
+#
+#	clusterName			Specifies the cluster name for k2hdkc dbaas.
+#						This is used as the base name that affects
+#						each setting name.
+#						This value allows empty. If empty, the release
+#						name on the helm command line is used.
+#						( ".Release.Name" )
+#	baseDomain			Specify the domain name of kubernetes. This
+#						value is usually empty. If empty, k8s.domain
+#						will be used.
+#	server.count		Specifies the number of k2hdkc servers.
+#	server.port			Specifies the port number of k2hdkc servers.
+#	server.ctlport		Specifies the control port number of k2hdkc
+#						servers.
+#	slave.count			Specifies the number of k2hdkc slaves.
+#	slave.ctlport		Specifies the control port number of k2hdkc
+#						slaves.
+#   slave.image			Specifies the image for k2hdkc slave container.
+#                   	If empty, the antpickax k2hdkc image is set as
+#                   	default.
+#   slave.command		Specifies the command for k2hdkc slave container.
+#                   	If empty, "/bin/sh" is set as default.
+#   slave.args			Specifies the args for k2hdkc slave container.
+#                   	If empty, dbaas-k2hdkc-dummyslave.sh is set as
+#                   	default.
+#   slave.files			Specifies additional files in configmap.
+#						The files must be under chart directory, if not,
+#						could not load file contents.
+#	slave.expandFiles	Specifies additional files and its contents(string)
+#						in configmap. Each value must have key and content
+#						subkey.
+#						ex)	expandFiles:
+#							  - key: myfile
+#							    contents: |-
+#							      ....
+#							      ....
+#
+dbaas:
+  clusterName: ""
+  baseDomain: ""
+  server:
+    count: 2
+    port: 8020
+    ctlport: 8021
+  slave:
+    count: 2
+    ctlport: 8022
+    image: ""
+    command: []
+    args: []
+    files: []
+    expandFiles: []
+
+#---------------------------------------------------------
+# Variables for using K2HR3 Cluster
+#
+#	clusterName		Specifies the cluster name for k2hr3 system
+#					for dbaas. This is used as the base name that
+#					affects each setting name. This value allows
+#					empty. If empty, the release name on the helm
+#					command line is used.( "k2hr3" )
+#	baseDomain		Specifies the base domain name for the k2hr3
+#					system. Normally, leave this value empty.
+#					If empty, k8s.domain will be used.
+#	unscopedToken	Specifies the UnscopedToken from K2HR3
+#					system(from Web Application).
+#	api.baseName	Specifies the base name for k2hr3 api in k2hr3
+#					system. Normally, leave this value empty. If
+#					empty, "r3api-<k2hr3 cluster name>" will be
+#					used.
+#	app.intPort		Specifies the k2hr3 api internal port.
+#					If this value is empty, it will be set 443.
+#
+k2hr3:
+  clusterName: ""
+  baseDomain: ""
+  unscopedToken: ""
+  api:
+    baseName: ""
+    intPort: 443
+
+#---------------------------------------------------------
+# Mount Points
+#
+#	configMap		Specifies mount point for configmap
+#					(ex. /configmap)
+#	ca				Specifies mount point for CA certification
+#					file directory(ex. /secret-ca)
+#	k2hr3Token		Specifies mount point for K2HR3 token
+#					(ex. /secret-k2hr3-token)
+#
+mountPoint:
+  configMap: /configmap
+  ca: /secret-ca
+  k2hr3Token: /secret-k2hr3-token
+
+#---------------------------------------------------------
+# Kubernetes
+#
+#	namespace		Specifies the namespace to start k2hdkc dbaas.
+#					If this is not specified, use Release.Namespace.
+#	domain			Specifies the domain fqdn for kubernetes.
+#					default is "svc.cluster.local".
+#
+k8s:
+  namespace: ""
+  domain: ""
+
+#---------------------------------------------------------
+# Files ( without modifying )
+#
+unconvertedFiles:
+  dbaas:
+    - key: dbaas-k2hdkc-variables-setup.sh
+      path: files/dbaas-k2hdkc-variables-setup.sh
+    - key: dbaas-k2hdkc-k2hr3-registration.sh
+      path: files/dbaas-k2hdkc-k2hr3-registration.sh
+    - key: dbaas-k2hdkc-ini-update.sh
+      path: files/dbaas-k2hdkc-ini-update.sh
+    - key: dbaas-k2hdkc-serverproc-wrap.sh
+      path: files/dbaas-k2hdkc-serverproc-wrap.sh
+    - key: dbaas-k2hdkc-chmpxproc-wrap.sh
+      path: files/dbaas-k2hdkc-chmpxproc-wrap.sh
+    - key: dbaas-setup-certificate.sh
+      path: files/dbaas-setup-certificate.sh
+    - key: dbaas-setup-k2hr3-data.sh
+      path: files/dbaas-setup-k2hr3-data.sh
+    - key: dbaas-unsetup-k2hr3-data.sh
+      path: files/dbaas-unsetup-k2hr3-data.sh
+    - key: dbaas-k2hdkc-dummyslave.sh
+      path: files/dbaas-k2hdkc-dummyslave.sh
+    - key: dbaas-k2hdkc-check.sh
+      path: files/dbaas-k2hdkc-check.sh
+    - key: dbaas-k2hdkc.ini.templ
+      path: files/dbaas-k2hdkc.ini.templ
+
+#
+# Local variables:
+# tab-width: 4
+# c-basic-offset: 4
+# End:
+# vim600: noexpandtab sw=4 ts=4 fdm=marker
+# vim<600: noexpandtab sw=4 ts=4
+#

@@ -1,0 +1,3615 @@
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: svrsvc-dummy
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: "k2hdkc-server-port"
+      protocol: "TCP"
+      port: 8020
+      targetPort: 8020
+    - name: "k2hdkc-server-ctlport"
+      protocol: "TCP"
+      port: 8021
+      targetPort: 8021
+  selector:
+    app: dummy
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: slvsvc-dummy
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: "k2hdkc-slave-ctlport"
+      protocol: "TCP"
+      port: 8022
+      targetPort: 8022
+  selector:
+    app: dummy
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: svrpod-dummy
+spec:
+  podManagementPolicy: OrderedReady
+  serviceName: svrsvc-dummy
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dummy
+  template:
+    metadata:
+      labels:
+        app: dummy
+    spec:
+      volumes:
+        - name: antpickax-etc-volume
+          emptyDir:
+            medium: Memory
+        - name: antpickax-var-lib-volume
+          emptyDir:
+            medium: Memory
+        - name: antpickax-var-run-volume
+          emptyDir:
+            medium: Memory
+        - name: configmap-dummy
+          configMap:
+            name: configmap-dummy
+            items:
+              - key: dbaas-k2hdkc-variables-setup.sh
+                path: dbaas-k2hdkc-variables-setup.sh
+              - key: dbaas-k2hdkc-k2hr3-registration.sh
+                path: dbaas-k2hdkc-k2hr3-registration.sh
+              - key: dbaas-k2hdkc-ini-update.sh
+                path: dbaas-k2hdkc-ini-update.sh
+              - key: dbaas-k2hdkc-serverproc-wrap.sh
+                path: dbaas-k2hdkc-serverproc-wrap.sh
+              - key: dbaas-k2hdkc-chmpxproc-wrap.sh
+                path: dbaas-k2hdkc-chmpxproc-wrap.sh
+              - key: dbaas-setup-certificate.sh
+                path: dbaas-setup-certificate.sh
+        - name: secret-k2hr3-ca-dummy_k2hr3
+          secret:
+            secretName: secret-k2hr3-ca-dummy_k2hr3
+        - name: secret-dummy-k2hr3-token
+          secret:
+            secretName: secret-dummy-k2hr3-token
+
+      shareProcessNamespace: true
+
+      initContainers:
+        - name: svrinit-dummy
+          image: alpine:3.13.5
+          env:
+            - name: ANTPICKAX_ETC_DIR
+              value: "/etc/antpickax"
+            - name: K2HR3_API_URL
+              value: "https://svc-r3api-dummy_k2hr3.default.svc.cluster.local:443"
+            - name: K2HR3_TENANT
+              value: "default"
+            - name: K2HDKC_DOMAIN
+              value: "svc.cluster.local"
+            - name: K2HDKC_CLUSTER_NAME
+              value: "dummy"
+            - name: K2HDKC_MODE
+              value: "server"
+            - name: K2HDKC_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: K2HDKC_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K2HDKC_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: K2HDKC_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: K2HDKC_POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: K2HDKC_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: K2HDKC_POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: SEC_CA_MOUNTPOINT
+              value: "/secret-ca"
+            - name: SEC_K2HR3_TOKEN_MOUNTPOINT
+              value: "/secret-k2hr3-token"
+            - name: SEC_UTOKEN_FILENAME
+              value: "unscopedToken"
+            - name: CERT_PERIOD_DAYS
+              value: "1825"
+
+          volumeMounts:
+            - mountPath: /etc/antpickax
+              name: antpickax-etc-volume
+            - mountPath: /configmap
+              name: configmap-dummy
+              readOnly: true
+            - mountPath: /secret-ca
+              name: secret-k2hr3-ca-dummy_k2hr3
+              readOnly: true
+            - mountPath: /secret-k2hr3-token
+              name: secret-dummy-k2hr3-token
+              readOnly: true
+          command: ["/bin/sh"]
+          args: ["/configmap/dbaas-k2hdkc-variables-setup.sh"]
+
+      containers:
+        - name: svrupdate-dummy
+          image: alpine:3.13.5
+          volumeMounts:
+            - mountPath: /etc/antpickax
+              name: antpickax-etc-volume
+            - mountPath: /configmap
+              name: configmap-dummy
+              readOnly: true
+          command: ["/bin/sh"]
+          args: ["/configmap/dbaas-k2hdkc-ini-update.sh"]
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-reg"]
+            preStop:
+              exec:
+                command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
+
+        - name: svrchmpx-dummy
+          image: antpickax/chmpx:latest
+          volumeMounts:
+            - mountPath: /etc/antpickax
+              name: antpickax-etc-volume
+            - mountPath: /var/lib/antpickax
+              name: antpickax-var-lib-volume
+            - mountPath: /var/run/antpickax
+              name: antpickax-var-run-volume
+            - mountPath: /configmap
+              name: configmap-dummy
+              readOnly: true
+          command: ["/bin/sh"]
+          args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
+
+        - name: svrk2hdkc-dummy
+          image: antpickax/k2hdkc:latest
+          volumeMounts:
+            - mountPath: /etc/antpickax
+              name: antpickax-etc-volume
+            - mountPath: /var/lib/antpickax
+              name: antpickax-var-lib-volume
+            - mountPath: /var/run/antpickax
+              name: antpickax-var-run-volume
+            - mountPath: /configmap
+              name: configmap-dummy
+              readOnly: true
+          command: ["/bin/sh"]
+          args: ["/configmap/dbaas-k2hdkc-serverproc-wrap.sh"]
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: slvpod-dummy
+spec:
+  podManagementPolicy: OrderedReady
+  serviceName: slvsvc-dummy
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dummy
+  template:
+    metadata:
+      labels:
+        app: dummy
+    spec:
+      volumes:
+        - name: antpickax-etc-volume
+          emptyDir:
+            medium: Memory
+        - name: antpickax-var-lib-volume
+          emptyDir:
+            medium: Memory
+        - name: antpickax-var-run-volume
+          emptyDir:
+            medium: Memory
+        - name: configmap-dummy
+          configMap:
+            name: configmap-dummy
+            items:
+              - key: dbaas-k2hdkc-variables-setup.sh
+                path: dbaas-k2hdkc-variables-setup.sh
+              - key: dbaas-k2hdkc-k2hr3-registration.sh
+                path: dbaas-k2hdkc-k2hr3-registration.sh
+              - key: dbaas-k2hdkc-ini-update.sh
+                path: dbaas-k2hdkc-ini-update.sh
+              - key: dbaas-k2hdkc-chmpxproc-wrap.sh
+                path: dbaas-k2hdkc-chmpxproc-wrap.sh
+              - key: dbaas-setup-certificate.sh
+                path: dbaas-setup-certificate.sh
+              - key: dbaas-k2hdkc-dummyslave.sh
+                path: dbaas-k2hdkc-dummyslave.sh
+        - name: secret-k2hr3-ca-dummy_k2hr3
+          secret:
+            secretName: secret-k2hr3-ca-dummy_k2hr3
+        - name: secret-dummy-k2hr3-token
+          secret:
+            secretName: secret-dummy-k2hr3-token
+
+      shareProcessNamespace: true
+
+      initContainers:
+        - name: slvinit-dummy
+          image: alpine:3.13.5
+          env:
+            - name: ANTPICKAX_ETC_DIR
+              value: "/etc/antpickax"
+            - name: K2HR3_API_URL
+              value: "https://svc-r3api-dummy_k2hr3.default.svc.cluster.local:443"
+            - name: K2HR3_TENANT
+              value: "default"
+            - name: K2HDKC_DOMAIN
+              value: "svc.cluster.local"
+            - name: K2HDKC_CLUSTER_NAME
+              value: "dummy"
+            - name: K2HDKC_MODE
+              value: "slave"
+            - name: K2HDKC_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: K2HDKC_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K2HDKC_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: K2HDKC_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: K2HDKC_POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: K2HDKC_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: K2HDKC_POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: SEC_CA_MOUNTPOINT
+              value: "/secret-ca"
+            - name: SEC_K2HR3_TOKEN_MOUNTPOINT
+              value: "/secret-k2hr3-token"
+            - name: SEC_UTOKEN_FILENAME
+              value: "unscopedToken"
+            - name: CERT_PERIOD_DAYS
+              value: "1825"
+
+          volumeMounts:
+            - mountPath: /etc/antpickax
+              name: antpickax-etc-volume
+            - mountPath: /configmap
+              name: configmap-dummy
+              readOnly: true
+            - mountPath: /secret-ca
+              name: secret-k2hr3-ca-dummy_k2hr3
+              readOnly: true
+            - mountPath: /secret-k2hr3-token
+              name: secret-dummy-k2hr3-token
+              readOnly: true
+          command: ["/bin/sh"]
+          args: ["/configmap/dbaas-k2hdkc-variables-setup.sh"]
+
+      containers:
+        - name: slvupdate-dummy
+          image: alpine:3.13.5
+          volumeMounts:
+            - mountPath: /etc/antpickax
+              name: antpickax-etc-volume
+            - mountPath: /configmap
+              name: configmap-dummy
+              readOnly: true
+          command: ["/bin/sh"]
+          args: ["/configmap/dbaas-k2hdkc-ini-update.sh"]
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-reg"]
+            preStop:
+              exec:
+                command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
+
+        - name: slvchmpx-dummy
+          image: antpickax/chmpx:latest
+          volumeMounts:
+            - mountPath: /etc/antpickax
+              name: antpickax-etc-volume
+            - mountPath: /var/lib/antpickax
+              name: antpickax-var-lib-volume
+            - mountPath: /var/run/antpickax
+              name: antpickax-var-run-volume
+            - mountPath: /configmap
+              name: configmap-dummy
+              readOnly: true
+          command: ["/bin/sh"]
+          args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
+
+        - name: slvk2hdkc-dummy
+          image: antpickax/k2hdkc:latest
+          volumeMounts:
+            - mountPath: /etc/antpickax
+              name: antpickax-etc-volume
+            - mountPath: /var/lib/antpickax
+              name: antpickax-var-lib-volume
+            - mountPath: /var/run/antpickax
+              name: antpickax-var-run-volume
+            - mountPath: /configmap
+              name: configmap-dummy
+              readOnly: true
+          command: ["/bin/sh"]
+          args: ["/configmap/dbaas-k2hdkc-dummyslave.sh"]
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-dummy-k2hr3-token
+  namespace: default
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-1"
+
+type: Opaque
+data:
+  unscopedToken: "ZHVtbXlfdG9rZW4="
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-dummy
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "-2"
+
+data:
+  dbaas-k2hdkc-variables-setup.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #---------------------------------------------------------------
+    # Environments
+    #
+    # This script expects the following environment variables to be
+    # set. These values are used as elements of CUK data when
+    # registering to K2HR3 Role members.
+    #
+    #	ANTPICKAX_ETC_DIR			configuration firectory
+    #								(ex. /etc/antpickax)
+    #	K2HR3_API_URL				k2hr3 api url
+    #	K2HR3_YRN_PREFIX			Specifies the prefix of the yrn
+    #								path for k2hr3. It specifies the
+    #								prefix for "yrn:yahoo:::<namespace>:role:<cluster name>/{server|slave}".
+    #								If omitted, it will use "yrn:yahoo:::".
+    #	K2HR3_TENANT				tenant name(=k8s namespace)
+    #	K2HDKC_DOMAIN				base domain name
+    #	K2HDKC_CLUSTER_NAME			k2hdkc cluster name
+    #	K2HDKC_MODE					k2hdkc(chmpx) mode, server or
+    #								slave
+    #
+    #	K2HDKC_NODE_NAME			node name on this container's node
+    #								(spec.nodeName)
+    #	K2HDKC_NODE_IP				node host ip address on this
+    #								container's node(status.hostIP)
+    #	K2HDKC_POD_NAME				pod name containing this container
+    #								(metadata.name)
+    #	K2HDKC_NAMESPACE			pod namespace for this container
+    #								(metadata.namespace)
+    #	K2HDKC_POD_SERVICE_ACCOUNT	pod service account for this
+    #								container(spec.serviceAccountName)
+    #	K2HDKC_POD_ID				pod id containing this container
+    #								(metadata.uid)
+    #	K2HDKC_POD_IP				pod ip address containing this
+    #								container(status.podIP)
+    #
+    #	SEC_CA_MOUNTPOINT			CA certification directory
+    #	SEC_K2HR3_TOKEN_MOUNTPOINT	K2HR3 unscoped token directory
+    #	SEC_UTOKEN_FILENAME			K2HR3 unscoped token filename
+    #	CERT_PERIOD_DAYS			Period days for certificate
+    #
+    #---------------------------------------------------------------
+    # Load variables from system file
+    #
+    #	K2HDKC_CONTAINER_ID			This value is the <docker id> that
+    #								this script reads from '/proc/<pid>/cgroups'.
+    #								(kubernetes uses this 'docker id'
+    #								as the 'container id'.)
+    #								This value is added to CUK data.
+    #
+    #---------------------------------------------------------------
+    # Output files
+    #
+    # This script outputs the following files under '/etc/antpickax'
+    # directory. These file contents can be used when accessing K2HR3
+    # REST API.
+    #
+    #	K2HR3_FILE_API_URL			k2hr3 api url with path
+    #	K2HR3_FILE_ROLE				yrn full path to the role
+    #	K2HR3_FILE_ROLE_TOKEN		symbolic link to role token file
+    #	K2HR3_FILE_CUK				cuk value for url argument to
+    #								K2HR3 REST API(PUT/GET/DELETE/etc)
+    #	K2HR3_FILE_CUKENC			urlencoded cuk value
+    #	K2HR3_FILE_APIARG			packed cuk argument("extra=...&cuk=value")
+    #								to K2HR3 REST API(PUT/GET/DELETE/etc)
+    #
+    #------------------------------------------------------------------------------
+    
+    #
+    # Program information
+    #
+    PRGNAME=$(basename "$0")
+    SRCTOP=$(dirname "$0")
+    SRCTOP=$(cd "${SRCTOP}" || exit 1; pwd)
+    
+    #
+    # Common Variables
+    #
+    DBAAS_FILE_API_URL="k2hr3-api-url"
+    DBAAS_FILE_REGISTER_URL="k2hr3-register-url"
+    DBAAS_FILE_ROLE="k2hr3-role"
+    DBAAS_FILE_ROLE_TOKEN="k2hr3-role-token"
+    DBAAS_FILE_RESOURCE="k2hr3-resource"
+    DBAAS_FILE_CUK="k2hr3-cuk"
+    DBAAS_FILE_CUKENC="k2hr3-cukencode"
+    DBAAS_FILE_APIARG="k2hr3-apiarg"
+    
+    K2HR3_API_REGISTER_PATH="/v1/role"
+    
+    #
+    # Variables
+    #
+    K2HDKC_CONTAINER_ID=""
+    
+    #----------------------------------------------------------
+    # Check curl command
+    #----------------------------------------------------------
+    CURL_COMMAND=$(command -v curl | tr -d '\n')
+    if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+    		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+    		exit 1
+    	fi
+    	${APK_COMMAND} add -q --no-progress --no-cache curl
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    fi
+    
+    #------------------------------------------------------------------------------
+    # Check Environments
+    #------------------------------------------------------------------------------
+    if [ "X${ANTPICKAX_ETC_DIR}" = "X" ] || [ ! -d "${ANTPICKAX_ETC_DIR}" ]; then
+    	echo "[ERROR] ${PRGNAME} : ANTPICKAX_ETC_DIR environment is not set or not directory." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HR3_API_URL}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HR3_API_URL environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HR3_YRN_PREFIX}" = "X" ]; then
+    	K2HR3_YRN_PREFIX="yrn:yahoo:::"
+    fi
+    if [ "X${K2HR3_TENANT}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HR3_TENANT environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_DOMAIN}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_DOMAIN environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_CLUSTER_NAME}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_CLUSTER_NAME environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_MODE}" = "XSERVER" ] || [ "X${K2HDKC_MODE}" = "Xserver" ]; then
+    	K2HDKC_MODE="server"
+    elif [ "X${K2HDKC_MODE}" = "XSLAVE" ] || [ "X${K2HDKC_MODE}" = "Xslave" ]; then
+    	K2HDKC_MODE="slave"
+    else
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_MODE environment is not set or wrong value, it must be set \"server\" or \"slave\"." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_NODE_NAME}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_NODE_NAME environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_NODE_IP}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_NODE_IP environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_POD_NAME}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_POD_NAME environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_NAMESPACE}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_NAMESPACE environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_POD_SERVICE_ACCOUNT}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_POD_SERVICE_ACCOUNT environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_POD_ID}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_POD_ID environment is not set." 1>&2
+    	exit 1
+    fi
+    # shellcheck disable=SC2153
+    if [ "X${K2HDKC_POD_IP}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_POD_IP environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${SEC_CA_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_CA_MOUNTPOINT}" ]; then
+    	echo "[ERROR] ${PRGNAME} : SEC_CA_MOUNTPOINT environment is not set or not directory." 1>&2
+    	exit 1
+    fi
+    if [ "X${SEC_K2HR3_TOKEN_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_K2HR3_TOKEN_MOUNTPOINT}" ]; then
+    	echo "[ERROR] ${PRGNAME} : SEC_K2HR3_TOKEN_MOUNTPOINT environment is not set or not directory." 1>&2
+    	exit 1
+    fi
+    if [ "X${SEC_UTOKEN_FILENAME}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : SEC_UTOKEN_FILENAME environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${CERT_PERIOD_DAYS}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : CERT_PERIOD_DAYS environment is not set." 1>&2
+    	exit 1
+    fi
+    
+    #------------------------------------------------------------------------------
+    # Get Scoped token
+    #------------------------------------------------------------------------------
+    #
+    # Request options for curl
+    #
+    RESPONSE_FILE="/tmp/${PRGNAME}_response.result"
+    REQOPT_SILENT="-s -S"
+    REQOPT_EXITCODE="-w '%{http_code}\n'"
+    REQOPT_OUTPUT="-o ${RESPONSE_FILE}"
+    
+    #
+    # Request options for CA certificate
+    #
+    REQOPT_CACERT=""
+    if [ -n "${SEC_CA_MOUNTPOINT}" ] && [ -d "${SEC_CA_MOUNTPOINT}" ]; then
+    	CA_CERT_FILE=$(find "${SEC_CA_MOUNTPOINT}/" -name '*_CA.crt' | head -1)
+    	if [ "X${CA_CERT_FILE}" != "X" ]; then
+    		REQOPT_CACERT="--cacert ${CA_CERT_FILE}"
+    	fi
+    fi
+    
+    #
+    # Unscoped token from environment
+    #
+    if [ ! -f "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HR3 Unscoped token file(${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}) is not existed."
+    	exit 1
+    fi
+    K2HR3_UNSCOPED_TOKEN=$(tr -d '\n' < "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}")
+    
+    rm -f "${RESPONSE_FILE}"
+    
+    #
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<utoken>" -d '{"auth":{"tenantName":"<tenant>"}}' -X POST https://<k2hr3 api>/v1/user/tokens
+    # [Response]
+    #	201
+    #	{"result":true,"message":"succeed","scoped":true,"token":"<token>"}
+    #
+    REQUEST_POST_BODY="-d '{\"auth\":{\"tenantName\":\"${K2HR3_TENANT}\"}}'"
+    REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_UNSCOPED_TOKEN}\""
+    
+    REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens")
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
+    	rm -f "${RESPONSE_FILE}"
+    	exit 1
+    fi
+    if [ "X${REQ_EXIT_CODE}" != "X201" ]; then
+    	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})"
+    	rm -f "${RESPONSE_FILE}"
+    	exit 1
+    fi
+    
+    #
+    # Check result
+    #
+    REQ_RESULT=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*result=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    REQ_SCOPED=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*scoped=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "X${REQ_RESULT}" != "Xtrue" ] || [ "X${REQ_SCOPED}" != "Xtrue" ]; then
+    	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\""
+    	rm -f "${RESPONSE_FILE}"
+    	exit 1
+    fi
+    K2HR3_SCOPED_TOKEN="${REQ_TOKEN}"
+    
+    rm -f "${RESPONSE_FILE}"
+    
+    #------------------------------------------------------------------------------
+    # Get Role token
+    #------------------------------------------------------------------------------
+    #
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<scoped token>" -X GET https://<k2hr3 api>/v1/role/token/<role name>?expire=0
+    # [Response]
+    #	200
+    #	{"result":true,"message":null,"token":"<token>","registerpath":"<....>"}
+    #
+    REQUEST_URLARGS="/v1/role/token/${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}"
+    REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_SCOPED_TOKEN}\""
+    
+    REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} -X GET ${K2HR3_API_URL}${REQUEST_URLARGS}?expire=0")
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with curl error code"
+    	rm -f "${RESPONSE_FILE}"
+    	exit 1
+    fi
+    if [ "X${REQ_EXIT_CODE}" != "X200" ]; then
+    	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with http exit code(${REQ_EXIT_CODE})"
+    	rm -f "${RESPONSE_FILE}"
+    	exit 1
+    fi
+    
+    REQ_RESULT=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*result=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "X${REQ_RESULT}" != "Xtrue" ] || [ "X${REQ_SCOPED}" != "Xtrue" ]; then
+    	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed by \"${REQ_MESSAGE}\""
+    	rm -f "${RESPONSE_FILE}"
+    	exit 1
+    fi
+    K2HR3_ROLE_TOKEN="${REQ_TOKEN}"
+    
+    rm -f "${RESPONSE_FILE}"
+    
+    #------------------------------------------------------------------------------
+    # Create registration parameters
+    #------------------------------------------------------------------------------
+    #
+    # Make CONTAINER_ID with checking pod id
+    #
+    # shellcheck disable=SC2010
+    POC_FILE_NAMES=$(ls -1 /proc/ | grep -E "[0-9]+" 2>/dev/null)
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : Could not find any /proc/<process id> directory." 1>&2
+    	exit 1
+    fi
+    
+    CONTAINER_ID_UIDS=""
+    for local_procid in ${POC_FILE_NAMES}; do
+    	if [ ! -f /proc/"${local_procid}"/cgroup ]; then
+    		continue
+    	fi
+    	local_all_line=$(cat /proc/"${local_procid}"/cgroup)
+    	if [ $? -ne 0 ]; then
+    		continue
+    	fi
+    	for local_line in ${local_all_line}; do
+    		CONTAINER_ID_UIDS=$(echo "${local_line}" | sed -e 's#.*pod##g' -e 's#\.slice##g' -e 's#\.scope##g' -e 's#docker-##g' 2>/dev/null)
+    		if [ $? -ne 0 ]; then
+    			continue
+    		fi
+    		if [ "X${CONTAINER_ID_UIDS}" != "X" ]; then
+    			break
+    		fi
+    	done
+    	if [ "X${CONTAINER_ID_UIDS}" != "X" ]; then
+    		break
+    	fi
+    done
+    
+    if [ "X${CONTAINER_ID_UIDS}" != "X" ]; then
+    	K2HDKC_TMP_POD_ID=$(echo "${CONTAINER_ID_UIDS}" | sed -e 's#/# #g' 2>/dev/null | awk '{print $1}' 2>/dev/null)
+    	K2HDKC_CONTAINER_ID=$(echo "${CONTAINER_ID_UIDS}" | sed -e 's#/# #g' 2>/dev/null | awk '{print $2}' 2>/dev/null)
+    
+    	if [ "X${K2HDKC_POD_ID}" = "X" ]; then
+    		K2HDKC_POD_ID=${K2HDKC_TMP_POD_ID}
+    	else
+    		if [ "X${K2HDKC_POD_ID}" != "X${K2HDKC_TMP_POD_ID}" ]; then
+    			echo "[WARNING] ${PRGNAME} : Specified pod id(${K2HDKC_POD_ID}) is not correct, so that use current pod id(${K2HDKC_TMP_POD_ID}) instead of it." 1>&2
+    			K2HDKC_POD_ID=${K2HDKC_TMP_POD_ID}
+    		fi
+    	fi
+    fi
+    if [ -z "${K2HDKC_CONTAINER_ID}" ]; then
+    	echo "[ERROR] ${PRGNAME} : Could not get container id." 1>&2
+    	exit 1
+    fi
+    
+    #
+    # Make CUK parameter
+    #
+    # The CUK parameter is a base64 url encoded value from following JSON object string(sorted keys by a-z).
+    #	{
+    #		"k8s_namespace":		${K2HDKC_NAMESPACE}
+    #		"k8s_service_account":	${K2HDKC_POD_SERVICE_ACCOUNT}
+    #		"k8s_node_name":		${K2HDKC_NODE_NAME},
+    #		"k8s_node_ip":			${K2HDKC_NODE_IP},
+    #		"k8s_pod_name":			${K2HDKC_POD_NAME},
+    #		"k8s_pod_id":			${K2HDKC_POD_ID}
+    #		"k8s_pod_ip":			${K2HDKC_POD_IP}
+    #		"k8s_container_id":		${K2HDKC_CONTAINER_ID}
+    #		"k8s_k2hr3_rand":		"random 32 byte value formatted hex string"
+    #	}
+    #
+    # Base64 URL encoding converts the following characters.
+    #	'+'				to '-'
+    #	'/'				to '_'
+    #	'='(end word)	to '%3d'
+    #
+    K2HDKC_REG_RAND=$(od -vAn -tx8 -N16 < /dev/urandom 2>/dev/null | tr -d '[:blank:]' 2>/dev/null)
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : Could not make 64 bytes random value for CUK value." 1>&2
+    	exit 1
+    fi
+    
+    # shellcheck disable=SC2089
+    CUK_STRING="{\
+    \"k8s_container_id\":\"${K2HDKC_CONTAINER_ID}\",\
+    \"k8s_k2hr3_rand\":\"${K2HDKC_REG_RAND}\",\
+    \"k8s_namespace\":\"${K2HDKC_NAMESPACE}\",\
+    \"k8s_node_ip\":\"${K2HDKC_NODE_IP}\",\
+    \"k8s_node_name\":\"${K2HDKC_NODE_NAME}\",\
+    \"k8s_pod_id\":\"${K2HDKC_POD_ID}\",\
+    \"k8s_pod_ip\":\"${K2HDKC_POD_IP}\",\
+    \"k8s_pod_name\":\"${K2HDKC_POD_NAME}\",\
+    \"k8s_service_account\":\"${K2HDKC_POD_SERVICE_ACCOUNT}\"\
+    }"
+    
+    CUK_BASE64_STRING=$(echo "${CUK_STRING}" 2>/dev/null | tr -d '\n' | sed -e 's/ //g' 2>/dev/null | base64 2>/dev/null | tr -d '\n' 2>/dev/null)
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : Could not make base64 string for CUK value." 1>&2
+    	exit 1
+    fi
+    CUK_BASE64_URLENC=$(echo "${CUK_BASE64_STRING}" 2>/dev/null | tr -d '\n' | sed -e 's/+/-/g' -e 's#/#_#g' -e 's/=/%3d/g' 2>/dev/null)
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : Could not make base64 url encode string for CUK value." 1>&2
+    	exit 1
+    fi
+    
+    #
+    # Make EXTRA parameter
+    #
+    # Currently, the value of "extra" is "k8s-auto-v1" only.
+    #
+    EXTRA_STRING='k8s-auto-v1'
+    
+    #
+    # Make 'tag' paraemter which is used CUSTOM_ID_SEED value in k2hdkc configuration
+    #
+    TAG_STRING=${K2HDKC_POD_NAME}
+    
+    #
+    # Make K2HR3 YRN for role and resource
+    #
+    K2HDKC_ROLE_YRN=${K2HR3_YRN_PREFIX}${K2HDKC_NAMESPACE}:role:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
+    K2HDKC_RESOURCE_YRN=${K2HR3_YRN_PREFIX}${K2HDKC_NAMESPACE}:resource:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
+    
+    #------------------------------------------------------------------------------
+    # Save parameters for accessing to K2HR3
+    #------------------------------------------------------------------------------
+    #
+    # Make each parameters to files
+    #
+    echo "${K2HR3_API_URL}"													| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_API_URL}"
+    echo "${K2HR3_API_URL}${K2HR3_API_REGISTER_PATH}"						| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_REGISTER_URL}"
+    echo "${K2HDKC_ROLE_YRN}"												| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_ROLE}"
+    echo "${K2HDKC_RESOURCE_YRN}"											| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_RESOURCE}"
+    echo "${CUK_BASE64_STRING}"												| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_CUK}"
+    echo "${CUK_BASE64_URLENC}"												| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_CUKENC}"
+    echo "extra=${EXTRA_STRING}&cuk=${CUK_BASE64_URLENC}&tag=${TAG_STRING}"	| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_APIARG}"
+    echo "${K2HR3_ROLE_TOKEN}"												| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_ROLE_TOKEN}"
+    
+    #------------------------------------------------------------------------------
+    # Create certificate and Save those
+    #------------------------------------------------------------------------------
+    if [ "X${SEC_CA_MOUNTPOINT}" != "X" ]; then
+    	#
+    	# Create certificate for me
+    	#
+    	/bin/sh "${SRCTOP}/dbaas-setup-certificate.sh" "${ANTPICKAX_ETC_DIR}" "${SEC_CA_MOUNTPOINT}" "${CERT_PERIOD_DAYS}"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Failed to creating certificate." 1>&2
+    		exit 1
+    	fi
+    fi
+    
+    #------------------------------------------------------------------------------
+    # Finish
+    #------------------------------------------------------------------------------
+    echo "[Succeed] ${PRGNAME} : Finished variables setup without any error." 1>&2
+    exit 0
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-k2hdkc-k2hr3-registration.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #---------------------------------------------------------------
+    # Options
+    #
+    #	--register(-reg)	If specified, register with K2HR3 Role
+    #	--delete(-del)		If specified, remove from K2HR3 Role
+    #
+    #---------------------------------------------------------------
+    # Input files
+    #
+    # This script loads the following files under '/etc/antpickax'
+    # directory. These file contents can be used when accessing K2HR3
+    # REST API.
+    #
+    #	K2HR3_FILE_REGISTER_URL		k2hr3 api url with path for
+    #								registration/deletion
+    #	K2HR3_FILE_ROLE				yrn full path to the role
+    #	K2HR3_FILE_ROLE_TOKEN		role token file
+    #	K2HR3_FILE_APIARG			packed cuk argument("extra=...&cuk=value")
+    #								to K2HR3 REST API(PUT/GET/DELETE/etc)
+    #
+    # CA cert file to K2HR3 API is in secret directory.
+    #
+    #	K2HR3_CA_FILE				If the K2HR3 API is HTTPS and is
+    #								a self-signed certificate, a
+    #								self-signed CA certificate is
+    #								required. In this case, this file
+    #								exists.
+    #
+    #---------------------------------------------------------------
+    
+    #
+    # Program information
+    #
+    PRGNAME=$(basename "$0")
+    SRCTOP=$(dirname "$0")
+    SRCTOP=$(cd "${SRCTOP}" || exit 1; pwd)
+    
+    #
+    # Common Variables
+    #
+    ANTPICKAX_ETC_DIR="/etc/antpickax"
+    K2HR3_CA_FILE="ca.crt"
+    K2HR3_FILE_REGISTER_URL="k2hr3-register-url"
+    K2HR3_FILE_ROLE="k2hr3-role"
+    K2HR3_FILE_ROLE_TOKEN="k2hr3-role-token"
+    K2HR3_FILE_APIARG="k2hr3-apiarg"
+    
+    #
+    # Check CA cert
+    #
+    if [ -f ${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE} ]; then
+    	K2HR3_CA_CERT_OPTION="--cacert"
+    	K2HR3_CA_CERT_OPTION_VALUE="${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}"
+    else
+    	K2HR3_CA_CERT_OPTION=""
+    	K2HR3_CA_CERT_OPTION_VALUE=""
+    fi
+    
+    #
+    # Get K2HR3 ROLE TOKEN
+    #
+    K2HDKC_ROLE_TOKEN=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN} 2>/dev/null)
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : Could not load role token from secret." 1>&2
+    	exit 1
+    fi
+    
+    #
+    # Get Parameters from files
+    #
+    K2HR3_REGISTER_URL=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_REGISTER_URL} 2>/dev/null)
+    K2HR3_ROLE=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE} 2>/dev/null)
+    K2HR3_APIARG=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_APIARG} 2>/dev/null)
+    
+    #
+    # Check curl command
+    #
+    # [NOTE]
+    # apk install may fail by following error. In most cases, retrying will solve the problem.
+    #   ERROR: Unable to lock database: temporary error (try again later)
+    #   ERROR: Failed to open apk database: temporary error (try again later)
+    #
+    CURL_INSTALLED=0
+    RETRY_COUNT=30
+    while [ "${CURL_INSTALLED}" -eq 0 ] && [ "${RETRY_COUNT}" -ne 0 ]; do
+    
+    	CURL_COMMAND=$(command -v curl | tr -d '\n')
+    	if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
+    		RETRY_COUNT=$((RETRY_COUNT - 1))
+    
+    		APK_COMMAND=$(command -v apk | tr -d '\n')
+    		if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+    			echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit." 1>&2
+    			exit 1
+    		fi
+    
+    		${APK_COMMAND} add -q --no-progress --no-cache curl
+    		if [ $? -ne 0 ]; then
+    			echo "[WARNING] ${PRGNAME} : Failed to install curl by apk(ALPINE), so retry it" 1>&2
+    			SLEEP_COMMAND=$(command -v sleep | tr -d '\n')
+    			${SLEEP_COMMAND} 2
+    		fi
+    	else
+    		CURL_INSTALLED=1
+    	fi
+    done
+    if [ "${CURL_INSTALLED}" -eq 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : Could not install curl command apk(ALPINE)." 1>&2
+    	exit 1
+    fi
+    
+    #------------------------------------------------------------------------------
+    # Parse options
+    #------------------------------------------------------------------------------
+    REGISTER_MODE=
+    while [ $# -ne 0 ]; do
+    	if [ "X$1" = "X" ]; then
+    		break
+    
+    	elif [ "X$1" = "X-reg" ] || [ "X$1" = "X-REG" ] || [ "X$1" = "X--register" ] || [ "X$1" = "X--REGISTER" ]; then
+    		if [ "X${REGISTER_MODE}" != "X" ]; then
+    			echo "[ERROR] ${PRGNAME} : already set \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
+    			exit 1
+    		fi
+    		REGISTER_MODE=1
+    
+    	elif [ "X$1" = "X-del" ] || [ "X$1" = "X-DEL" ] || [ "X$1" = "X--delete" ] || [ "X$1" = "X--DELETE" ]; then
+    		if [ "X${REGISTER_MODE}" != "X" ]; then
+    			echo "[ERROR] ${PRGNAME} : already set \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
+    			exit 1
+    		fi
+    		REGISTER_MODE=0
+    
+    	else
+    		echo "[ERROR] ${PRGNAME} : unknown option($1) is specified." 1>&2
+    		exit 1
+    	fi
+    	shift
+    done
+    
+    if [ "X${REGISTER_MODE}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : specify \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
+    	exit 1
+    fi
+    
+    #------------------------------------------------------------------------------
+    # Main process
+    #------------------------------------------------------------------------------
+    #
+    # Call K2HR3 REST API
+    #
+    # These file values are used for registration/deletion as follows.
+    # 	Registration:	curl -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X PUT -H "x-auth-token: R=${K2HDKC_ROLE_TOKEN}" "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"
+    # 	Deletion:		curl -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X DELETE "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"
+    #
+    if [ ${REGISTER_MODE} -eq 1 ]; then
+    	#
+    	# Registration
+    	#
+    	${CURL_COMMAND} -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X PUT -H "x-auth-token: R=${K2HDKC_ROLE_TOKEN}" "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Failed registration to role member." 1>&2
+    		exit 1
+    	fi
+    else
+    	#
+    	# Deletion
+    	#
+    	# The Pod(Container) has been registered, so we can access K2HR3 without token to delete it.
+    	#
+    	${CURL_COMMAND} -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X DELETE "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Failed deletion from role member." 1>&2
+    		exit 1
+    	fi
+    fi
+    
+    exit 0
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-k2hdkc-ini-update.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #---------------------------------------------------------------
+    # Input files
+    #
+    # This script loads the following files under '/etc/antpickax'
+    # directory. These file contents can be used when accessing
+    # K2HR3 REST API.
+    #
+    #	K2HR3_FILE_API_URL			k2hr3 api url
+    #	K2HR3_FILE_RESOURCE			yrn full path to the resource
+    #	K2HR3_FILE_ROLE_TOKEN		role token file
+    #	K2HR3_FILE_CUK				cuk value for url argument to
+    #								K2HR3 REST API(PUT/GET/DELETE/etc)
+    #
+    # And use the following files as temporary.
+    #
+    #	RESOURCE_TEMP_FILE			temporary file which is downloading
+    #								the resource fron K2HR3.
+    #	RESOURCE_COMPARE_CUR_FILE	temporary file for current
+    #								configuration file to comparing.
+    #	RESOURCE_COMPARE_NEW_FILE	temporary file for downloaded
+    #								configuration file to comparing.
+    #
+    # This program is started as a daemon. And if it is started from
+    # other than the terminal, the message will be output to the
+    # following file under '/var/log'.
+    #
+    #	LOG_FILE					output message file
+    #
+    # CA cert and host server/client cert files to K2HR3 API is in
+    # secret directory.
+    #
+    #	K2HR3_CA_FILE				If the K2HR3 API is HTTPS and is
+    #								a self-signed certificate, a
+    #								self-signed CA certificate is
+    #								required. In this case, this file
+    #								exists.
+    #
+    #---------------------------------------------------------------
+    
+    #
+    # Program information
+    #
+    PRGNAME=$(basename "$0")
+    SRCTOP=$(dirname "$0")
+    SRCTOP=$(cd "${SRCTOP}" || exit 1; pwd)
+    
+    #
+    # Common Variables
+    #
+    ANTPICKAX_ETC_DIR="/etc/antpickax"
+    VAR_LOG_DIR="/var/log"
+    
+    K2HR3_CA_FILE="ca.crt"
+    
+    K2HR3_FILE_API_URL="k2hr3-api-url"
+    K2HR3_FILE_RESOURCE="k2hr3-resource"
+    K2HR3_FILE_ROLE_TOKEN="k2hr3-role-token"
+    K2HR3_FILE_CUK="k2hr3-cuk"
+    
+    RESOURCE_TEMP_FILE="/tmp/${PRGNAME}.$$"
+    RESOURCE_COMPARE_CUR_FILE="${RESOURCE_TEMP_FILE}.cur"
+    RESOURCE_COMPARE_NEW_FILE="${RESOURCE_TEMP_FILE}.new"
+    
+    LOG_FILE="${PRGNAME}.log"
+    
+    LOOP_SLEEP_SHORT=10
+    LOOP_SLEEP_ADD=5
+    LOOP_SLEEP_MAX=60
+    LOOP_SLEEP_CUR=${LOOP_SLEEP_SHORT}
+    
+    #
+    # Utility - Output messgae
+    #
+    prn_msg()
+    {
+    	MSG_DATE=$(date "+%Y-%m-%d %H:%M:%S")
+    	if [ -t 1 ]; then
+    		echo "${MSG_DATE} $*" >> "${VAR_LOG_DIR}"/"${LOG_FILE}"
+    	else
+    		echo "${MSG_DATE} $*"
+    	fi
+    }
+    
+    #
+    # Check curl command
+    #
+    CURL_COMMAND=$(command -v curl | tr -d '\n')
+    if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+    		prn_msg "[ERROR] This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+    		exit 1
+    	fi
+    	${APK_COMMAND} add -q --no-progress --no-cache curl
+    	if [ $? -ne 0 ]; then
+    		prn_msg "[ERROR] Failed to install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    fi
+    
+    #
+    # Main loop - This script is run as daemon
+    #
+    FILE_NOT_UPDATED_YET=1
+    while [ ${FILE_NOT_UPDATED_YET} -le 1 ]; do
+    	if [ ${FILE_NOT_UPDATED_YET} -ne 1 ]; then
+    		LOOP_SLEEP_CUR=$((LOOP_SLEEP_CUR + LOOP_SLEEP_ADD))
+    		if [ ${LOOP_SLEEP_MAX} -lt ${LOOP_SLEEP_CUR} ]; then
+    			LOOP_SLEEP_CUR=${LOOP_SLEEP_MAX}
+    		fi
+    	fi
+    	sleep ${LOOP_SLEEP_CUR}
+    
+    	#prn_msg "[MESSAGE] Start ----------------------------------------"
+    
+    	#
+    	# Check files
+    	#
+    	if [ ! -f ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_API_URL} ]; then 
+    		prn_msg "[ERROR] Not found ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_API_URL}"
+    		continue;
+    	fi
+    	if [ ! -f ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE} ]; then 
+    		prn_msg "[ERROR] Not found ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}"
+    		continue;
+    	fi
+    	if [ ! -f ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN} ]; then 
+    		prn_msg "[ERROR] Not found ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN}"
+    		continue;
+    	fi
+    	if [ ! -f ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_CUK} ]; then 
+    		prn_msg "[ERROR] Not found ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_CUK}"
+    		continue;
+    	fi
+    
+    	#
+    	# Check CA cert
+    	#
+    	if [ -f ${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE} ]; then
+    		K2HR3_CA_CERT_OPTION="--cacert"
+    		K2HR3_CA_CERT_OPTION_VALUE="${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}"
+    	else
+    		K2HR3_CA_CERT_OPTION=""
+    		K2HR3_CA_CERT_OPTION_VALUE=""
+    	fi
+    
+    	#
+    	# Setup variables
+    	#
+    	K2HR3_API_URL=$(tr -d '\n' < "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_API_URL}" 2>/dev/null)
+    	K2HR3_RESOURCE_URL="${K2HR3_API_URL}/v1/resource"
+    
+    	K2HR3_YRN_RESOURCE=$(tr -d '\n' < "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" 2>/dev/null)
+    	K2HR3_ROLE_TOKEN=$(tr -d '\n' < "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN}" 2>/dev/null)
+    	K2HR3_SELF_CUK=$(tr -d '\n' < "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_CUK}" 2>/dev/null)
+    
+    	K2HDDKC_MODE=$(echo "${K2HR3_YRN_RESOURCE}" | sed 's#[:/]# #g' | awk '{print $NF}')
+    	K2HDDKC_INI_FILE="${K2HDDKC_MODE}.ini"
+    	K2HR3_DATE=$(date -R)
+    
+    	#
+    	# Get the resource which is configuration file template
+    	#
+    	RESOURCE_STRING=$(curl -s -S -X GET ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -H "Content-Type: application/json" -H "x-auth-token: R=${K2HR3_ROLE_TOKEN}" "${K2HR3_RESOURCE_URL}/${K2HR3_YRN_RESOURCE}" 2>&1)
+    
+    	#
+    	# Check got resource result
+    	#
+    	echo "${RESOURCE_STRING}" | tr '[:lower:]' '[:upper:]' | grep '["]*RESULT["]*:[[:space:]]*TRUE[[:space:]]*,' >/dev/null 2>&1
+    	if [ $? -ne 0 ]; then
+    		prn_msg "[ERROR] Could not get resource from K2HR3(${K2HR3_RESOURCE_URL}/${K2HR3_YRN_RESOURCE})"
+    		prn_msg "[ERROR] Result: ${RESOURCE_STRING}"
+    		continue;
+    	fi
+    
+    	#
+    	# Extract the data part(configuation) from got resource
+    	#
+    	echo "${RESOURCE_STRING}" | sed											\
+    		-e 's/^.*["]*[rR][eE][sS][oO][uU][rR][cC][eE]["]*:[[:space:]]*"//g'	\
+    		-e 's/"}$//g'														\
+    		-e 's/\\n/\n/g'														\
+    		-e "s/%%SELF_CONTAINER_CUK%%/${K2HR3_SELF_CUK}/g"					\
+    		-e "s/%%FILE_DOWNLOAD_DATE%%/${K2HR3_DATE}/g"						\
+    		> "${RESOURCE_TEMP_FILE}" 2>/dev/null
+    
+    	#
+    	# Check for updates
+    	#
+    	FOUND_DIFFERENCE=0
+    	if [ -f "${ANTPICKAX_ETC_DIR}/${K2HDDKC_INI_FILE}" ]; then
+    		#
+    		# Cut 'DATE' line
+    		#
+    		sed -e 's/^DATE[[:space:]]*=.*$//g' -e 's/^[[:space:]]*//g' "${ANTPICKAX_ETC_DIR}/${K2HDDKC_INI_FILE}"	> "${RESOURCE_COMPARE_CUR_FILE}" 2>/dev/null
+    		sed -e 's/^DATE[[:space:]]*=.*$//g' -e 's/^[[:space:]]*//g' "${RESOURCE_TEMP_FILE}"						> "${RESOURCE_COMPARE_NEW_FILE}" 2>/dev/null
+    
+    		#
+    		# Compare without blank lines
+    		#
+    		diff -B "${RESOURCE_COMPARE_CUR_FILE}" "${RESOURCE_COMPARE_NEW_FILE}" >/dev/null 2>&1
+    		if [ $? -ne 0 ]; then
+    			FOUND_DIFFERENCE=1
+    		fi
+    
+    		rm -f "${RESOURCE_COMPARE_CUR_FILE}" "${RESOURCE_COMPARE_NEW_FILE}"
+    	else
+    		FOUND_DIFFERENCE=1
+    	fi
+    
+    	#
+    	# Update configuarion file
+    	#
+    	if [ ${FOUND_DIFFERENCE} -eq 1 ]; then
+    		cp "${RESOURCE_TEMP_FILE}" "${ANTPICKAX_ETC_DIR}/${K2HDDKC_INI_FILE}" 2>/dev/null
+    		if [ $? -ne 0 ]; then
+    			rm -f "${RESOURCE_TEMP_FILE}"
+    			prn_msg "[ERROR] Could not copy resource file to ${ANTPICKAX_ETC_DIR}/${K2HDDKC_INI_FILE}"
+    			continue;
+    		fi
+    		prn_msg "[MESSAGE] Updated ${ANTPICKAX_ETC_DIR}/${K2HDDKC_INI_FILE}"
+    		FILE_NOT_UPDATED_YET=0
+    		LOOP_SLEEP_CUR=${LOOP_SLEEP_SHORT}
+    	else
+    		prn_msg "[MESSAGE] Nothing to update"
+    	fi
+    
+    	rm -f "${RESOURCE_TEMP_FILE}"
+    done
+    
+    prn_msg "[MESSAGE] Process terminating..."
+    
+    exit 0
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-k2hdkc-serverproc-wrap.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #----------------------------------------------------------
+    # Common variables
+    #----------------------------------------------------------
+    PRGNAME=$(basename "$0")
+    SCRIPTDIR=$(dirname "$0")
+    SCRIPTDIR=$(cd "${SCRIPTDIR}" || exit 1; pwd)
+    
+    ANTPICKAX_ETC_DIR="/etc/antpickax"
+    ANTPICKAX_RUN_DIR="/var/run/antpickax"
+    
+    WATCHER_SERVICEIN_FILE="k2hkdc_servicein.cmd"
+    WATCHER_SERVICEIN_FILE_PATH="${ANTPICKAX_RUN_DIR}/${WATCHER_SERVICEIN_FILE}"
+    WATCHER_RECOVER_FILE="k2hkdc_recover.cmd"
+    WATCHER_RECOVER_FILE_PATH="${ANTPICKAX_RUN_DIR}/${WATCHER_RECOVER_FILE}"
+    WATCHER_STSUPDATE_FILE="k2hkdc_statusupdate.cmd"
+    WATCHER_STSUPDATE_FILE_PATH="${ANTPICKAX_RUN_DIR}/${WATCHER_STSUPDATE_FILE}"
+    
+    WATCHER_OPT="-watcher"
+    RETRYCOUNT=30
+    SLEEP_LONG=20
+    SLEEP_MIDDLE=10
+    SLEEP_SHORT=1
+    
+    #----------------------------------------------------------
+    # Make configuration file path
+    #----------------------------------------------------------
+    K2HR3_FILE_RESOURCE="k2hr3-resource"
+    if [ -f "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" ]; then
+    	K2HR3_YRN_RESOURCE=$(tr -d '\n' < "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" 2>/dev/null)
+    	K2HDDKC_MODE=$(echo "${K2HR3_YRN_RESOURCE}" | sed 's#[:/]# #g' | awk '{print $NF}')
+    else
+    	#
+    	# Always k2hdkc process is on server node, if not specified mode.
+    	#
+    	K2HDDKC_MODE="server"
+    fi
+    INI_FILE="${K2HDDKC_MODE}.ini"
+    INI_FILE_PATH="${ANTPICKAX_ETC_DIR}/${INI_FILE}"
+    
+    #----------------------------------------------------------
+    # Main processing
+    #----------------------------------------------------------
+    if [ "X$1" = "X${WATCHER_OPT}" ]; then
+    	#
+    	# Run watcher
+    	#
+    	LOCALHOSTNAME=$(chmpxstatus -conf "${INI_FILE_PATH}" -self	| grep 'hostname'		| sed -e 's/[[:space:]]*$//g' -e 's/^[[:space:]]*hostname[[:space:]]*=[[:space:]]*//g')
+    	CTLPORT=$(chmpxstatus -conf "${INI_FILE_PATH}" -self		| grep 'control port'	| sed -e 's/[[:space:]]*$//g' -e 's/^[[:space:]]*control port[[:space:]]*=[[:space:]]*//g')
+    	CUK=$(chmpxstatus -conf "${INI_FILE_PATH}" -self			| grep 'cuk'			| sed -e 's/[[:space:]]*$//g' -e 's/^[[:space:]]*cuk[[:space:]]*=[[:space:]]*//g')
+    	CUSTOM_SEED=$(chmpxstatus -conf "${INI_FILE_PATH}" -self	| grep 'custom id seed'	| sed -e 's/[[:space:]]*$//g' -e 's/^[[:space:]]*custom id seed[[:space:]]*=[[:space:]]*//g')
+    
+    	{
+    		echo "servicein ${LOCALHOSTNAME}:${CTLPORT}:${CUK}:${CUSTOM_SEED}:"
+    		echo "sleep ${SLEEP_SHORT}"
+    		echo "statusupdate"
+    		echo "exit"
+    	} > "${WATCHER_SERVICEIN_FILE_PATH}"
+    	{
+    		echo "serviceout ${LOCALHOSTNAME}:${CTLPORT}:${CUK}:${CUSTOM_SEED}:"
+    		echo "sleep ${SLEEP_SHORT}"
+    		echo "statusupdate"
+    		echo "exit"
+    	} > "${WATCHER_RECOVER_FILE_PATH}"
+    	{
+    		echo "statusupdate"
+    		echo "exit"
+    	} > ${WATCHER_STSUPDATE_FILE_PATH}
+    
+    	LOOP_BREAK=0
+    	while [ "${LOOP_BREAK}" -eq 0 ]; do
+    		chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring servicein -nosuspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
+    		if [ $? -eq 0 ]; then
+    			chmpxstatus -conf "${INI_FILE_PATH}" -self | grep 'status[[:space:]]*=' | grep '\[ADD\]' | grep '\[Pending\]' >/dev/null 2>&1
+    			if [ $? -eq 0 ]; then
+    				# 
+    				# When the status is "ADD:Pending", type a new ServiceIn command after short sleep.
+    				#
+    				sleep ${SLEEP_MIDDLE}
+    				chmpxstatus -conf "${INI_FILE_PATH}" -self | grep 'status[[:space:]]*=' | grep '\[ADD\]' | grep '\[Pending\]' >/dev/null 2>&1
+    				if [ $? -eq 0 ]; then
+    					#
+    					# To Service Out
+    					#
+    					chmpxlinetool -conf "${INI_FILE_PATH}" -run "${WATCHER_RECOVER_FILE_PATH}" >/dev/null 2>&1
+    				fi
+    				sleep "${SLEEP_MIDDLE}"
+    			else
+    				sleep "${SLEEP_LONG}"
+    				chmpxlinetool -conf "${INI_FILE_PATH}" -run "${WATCHER_STSUPDATE_FILE_PATH}" >/dev/null 2>&1
+    			fi
+    		else
+    			chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring serviceout -nosuspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
+    			if [ $? -eq 0 ]; then
+    				# 
+    				# When the status is "ServiceOut:NoSuspend", type a new ServiceIn command after short sleep.
+    				#
+    				sleep "${SLEEP_MIDDLE}"
+    				chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring serviceout -nosuspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
+    				if [ $? -eq 0 ]; then
+    					#
+    					# To Service In
+    					#
+    					chmpxlinetool -conf "${INI_FILE_PATH}" -run "${WATCHER_SERVICEIN_FILE_PATH}" >/dev/null 2>&1
+    				else
+    					chmpxlinetool -conf "${INI_FILE_PATH}" -run "${WATCHER_STSUPDATE_FILE_PATH}" >/dev/null 2>&1
+    				fi
+    			fi
+    			sleep "${SLEEP_MIDDLE}"
+    		fi
+    	done
+    
+    else
+    	#
+    	# Run k2hdkc
+    	#
+    	CHMPX_UP=0
+    	while [ "${CHMPX_UP}" -eq 0 ]; do
+    		#
+    		# Check keep status while SLEEP_MIDDLE second
+    		#
+    		LOOP_TIME_COUNTER="${SLEEP_MIDDLE}"
+    		while [ "${LOOP_TIME_COUNTER}" -gt 0 ]; do
+    			chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring serviceout -suspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
+    			if [ $? -ne 0 ]; then
+    				chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring servicein -suspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
+    				if [ $? -ne 0 ]; then
+    					break;
+    				fi
+    			fi
+    			sleep "${SLEEP_SHORT}"
+    			LOOP_TIME_COUNTER=$((LOOP_TIME_COUNTER - SLEEP_SHORT))
+    		done
+    
+    		if [ "${LOOP_TIME_COUNTER}" -le 0 ]; then
+    			CHMPX_UP=1
+    		else
+    			sleep "${SLEEP_MIDDLE}"
+    			RETRYCOUNT=$((RETRYCOUNT - 1))
+    			if [ "${RETRYCOUNT}" -le 0 ]; then
+    				break;
+    			fi
+    		fi
+    	done
+    
+    	if [ "${CHMPX_UP}" -eq 0 ]; then
+    		exit 1
+    	fi
+    
+    	#
+    	# Run checker process
+    	#
+    	/bin/sh "${SCRIPTDIR}/${PRGNAME}" "${WATCHER_OPT}" >/dev/null 2>&1 <&- &
+    
+    	set -e
+    
+    	K2HFILE=$(grep K2HFILE "${INI_FILE_PATH}" | sed -e 's/=//g' -e 's/K2HFILE//g' -e 's/^[[:space:]]*//g' -e 's/[[:space:]]*$//g')
+    	K2HDIR=$(dirname "${K2HFILE}")
+    	mkdir -p "${K2HDIR}"
+    
+    	#
+    	# stdio/stderr is not redirected.
+    	#
+    	k2hdkc -conf "${INI_FILE_PATH}" -d err
+    fi
+    
+    exit $?
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-k2hdkc-chmpxproc-wrap.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #----------------------------------------------------------
+    # Common variables
+    #----------------------------------------------------------
+    #PRGNAME=$(basename "$0")
+    #SCRIPTDIR=$(dirname "$0")
+    #SCRIPTDIR=$(cd "${SRCTOP}" || exit 1; pwd)
+    
+    ANTPICKAX_ETC_DIR="/etc/antpickax"
+    K2HR3_FILE_RESOURCE="k2hr3-resource"
+    
+    RETRYCOUNT=30
+    SLEEP_SHORT=10
+    
+    #----------------------------------------------------------
+    # Make configuration file path
+    #----------------------------------------------------------
+    K2HR3_YRN_RESOURCE=$(tr -d '\n' < "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" 2>/dev/null)
+    CHMPX_MODE=$(echo "${K2HR3_YRN_RESOURCE}" | sed 's#[:/]# #g' | awk '{print $NF}')
+    INI_FILE="${CHMPX_MODE}.ini"
+    INI_FILE_PATH="${ANTPICKAX_ETC_DIR}/${INI_FILE}"
+    
+    if [ -f "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" ]; then
+    	K2HR3_YRN_RESOURCE=$(tr -d '\n' < "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" 2>/dev/null)
+    	CHMPX_MODE=$(echo "${K2HR3_YRN_RESOURCE}" | sed 's#[:/]# #g' | awk '{print $NF}')
+    else
+    	if [ "X$1" = "XSERVER" ] || [ "X$1" = "Xserver" ]; then
+    		CHMPX_MODE="server"
+    	elif [ "X$1" = "XSLAVE" ] || [ "X$1" = "Xslave" ]; then
+    		CHMPX_MODE="slave"
+    	else
+    		CHMPX_MODE="server"
+    	fi
+    fi
+    
+    INI_FILE="${CHMPX_MODE}.ini"
+    INI_FILE_PATH="${ANTPICKAX_ETC_DIR}/${INI_FILE}"
+    
+    #----------------------------------------------------------
+    # Main processing
+    #----------------------------------------------------------
+    #
+    # Wait for creating configuarion file
+    #
+    FILE_EXISTS=0
+    while [ "${FILE_EXISTS}" -eq 0 ]; do
+    	if [ -f "${INI_FILE_PATH}" ]; then
+    		FILE_EXISTS=1
+    	else
+    		RETRYCOUNT=$((RETRYCOUNT - 1))
+    		if [ "${RETRYCOUNT}" -le 0 ]; then
+    			echo "[ERROR] ${INI_FILE_PATH} is not existed."
+    			exit 1
+    		fi
+    		sleep "${SLEEP_SHORT}"
+    	fi
+    done
+    
+    #
+    # Run chmpx process
+    #
+    set -e
+    
+    #
+    # stdio/stderr is not redirected.
+    #
+    chmpx -conf "${INI_FILE_PATH}" -d err
+    
+    exit $?
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-setup-certificate.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #----------------------------------------------------------
+    # Usage: script <output dir> <CA certs dir> <period days>
+    # 
+    # Specify the name of the service that has the ClusterIP,
+    # such as NodePort.
+    # Get the IP address from the environment variable using
+    # the specified service name.
+    # The obtained IP address will be used as the IP address
+    # of the SAN of the certificate.
+    #
+    #----------------------------------------------------------
+    PRGNAME=$(basename "$0")
+    SCRIPTDIR=$(dirname "$0")
+    SCRIPTDIR=$(cd "${SCRIPTDIR}" || exit 1; pwd)
+    
+    #----------------------------------------------------------
+    # Parse parameter
+    #----------------------------------------------------------
+    #
+    # 1'st parameter is output directory path(ex. /etc/antpickax).
+    #
+    if [ $# -lt 1 ]; then
+    	echo "[ERROR] First paranmeter for output directory path is needed."
+    	exit 1
+    fi
+    if [ ! -d "$1" ]; then
+    	echo "[ERROR] First paranmeter for output directory path is not directory."
+    	exit 1
+    fi
+    OUTPUT_DIR="$1"
+    shift
+    
+    #
+    # 2'nd parameter is directory path(ex. /secret-ca) for CA certificate.
+    #
+    if [ $# -lt 1 ]; then
+    	echo "[ERROR] Second paranmeter for CA certificate directory path is needed."
+    	exit 1
+    fi
+    if [ ! -d "$1" ]; then
+    	echo "[ERROR] Second paranmeter for CA certificate directory path is not directory."
+    	exit 1
+    fi
+    CA_CERT_DIR="$1"
+    shift
+    
+    #
+    # 3'rd parameter is period days for certificate(ex. 3650).
+    #
+    if [ $# -lt 1 ]; then
+    	echo "[ERROR] Third paranmeter for period days is not specified."
+    	exit 1
+    fi
+    # shellcheck disable=SC2003
+    expr "$1" + 1 >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] Third paranmeter for period days is not number."
+    	exit 1
+    fi
+    CERT_PERIOD_DAYS="$1"
+    shift
+    
+    #----------------------------------------------------------
+    # Variables
+    #----------------------------------------------------------
+    #
+    # Hostnames / IP addresses
+    #
+    # LOCAL_DOMAIN			ex. default.svc.cluster.local
+    # LOCAL_HOST_DOMAIN		ex. svc.default.svc.cluster.local
+    # FULL_HOST_NAME		ex. pod.svc.default.svc.cluster.local
+    # SHORT_HOST_NAME		ex. pod
+    # NODOMAIN_HOST_NAME	ex. pod.svc
+    #
+    LOCAL_DOMAIN="${CHMPX_POD_NAMESPACE}.${CHMPX_DEFAULT_DOMAIN}"
+    LOCAL_HOST_DOMAIN=$(hostname -d)
+    LOCAL_HOST_IP=$(hostname -i)
+    FULL_HOST_NAME=$(hostname -f)
+    SHORT_HOST_NAME=$(hostname -s)
+    NODOMAIN_HOST_NAME=$(echo "${FULL_HOST_NAME}" | sed -e "s/\.${LOCAL_DOMAIN}//g")
+    
+    #
+    # Certificate directories / files
+    #
+    CERT_WORK_DIR="${OUTPUT_DIR}/certwork"
+    
+    if [ ! -d "${CERT_WORK_DIR}" ]; then
+    	mkdir -p "${CERT_WORK_DIR}"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] Could not create directory ${CERT_WORK_DIR}"
+    		exit 1
+    	fi
+    	mkdir -p "${CERT_WORK_DIR}/private"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] Could not create directory ${CERT_WORK_DIR}/private"
+    		exit 1
+    	fi
+    	mkdir -p "${CERT_WORK_DIR}/newcerts"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] Could not create directory ${CERT_WORK_DIR}/newcerts"
+    		exit 1
+    	fi
+    	mkdir -p "${CERT_WORK_DIR}/oldcerts"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] Could not create directory ${CERT_WORK_DIR}/oldcerts"
+    		exit 1
+    	fi
+    	date +%s > "${CERT_WORK_DIR}/serial"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] Could not create file ${CERT_WORK_DIR}/serial"
+    		exit 1
+    	fi
+    	touch "${CERT_WORK_DIR}/index.txt"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] Could not create file ${CERT_WORK_DIR}/index.txt"
+    		exit 1
+    	fi
+    fi
+    
+    #
+    # Configration files for openssl
+    #
+    ORG_OPENSSL_CNF="/etc/ssl/openssl.cnf"
+    CUSTOM_OPENSSL_CNF="${CERT_WORK_DIR}/openssl.cnf"
+    
+    SUBJ_CSR_C="JP"
+    SUBJ_CSR_S="Tokyo"
+    SUBJ_CSR_O="AntPickax"
+    
+    #
+    # CA certificate / private key files
+    #
+    # ORG_CA_CERT_FILE	CA certification(ex. default.svc.cluster.local_CA.crt)
+    # ORG_CA_KEY_FILE	CA private key(ex. default.svc.cluster.local_CA.key)
+    #
+    ORG_CA_CERT_FILE=$(find "${CA_CERT_DIR}/" -name '*_CA.crt' | head -1)
+    ORG_CA_KEY_FILE=$(find "${CA_CERT_DIR}/" -name '*_CA.key' | head -1)
+    if [ "X${ORG_CA_CERT_FILE}" = "X" ] || [ "X${ORG_CA_KEY_FILE}" = "X" ]; then
+    	echo "[ERROR] CA certificate file or private key file are not existed."
+    	exit 1
+    fi
+    cp -p "${ORG_CA_CERT_FILE}" "${CERT_WORK_DIR}/cacert.pem"
+    cp -p "${ORG_CA_KEY_FILE}"  "${CERT_WORK_DIR}/private/cakey.pem"
+    chmod 0400 "${CERT_WORK_DIR}/private/cakey.pem"
+    
+    #
+    # Certificate and private files
+    #
+    RAW_CERT_FILE="${CERT_WORK_DIR}/${FULL_HOST_NAME}.crt"
+    RAW_CSR_FILE="${CERT_WORK_DIR}/${FULL_HOST_NAME}.csr"
+    RAW_KEY_FILE="${CERT_WORK_DIR}/${FULL_HOST_NAME}.key"
+    
+    CA_CERT_FILE="${OUTPUT_DIR}/ca.crt"
+    SERVER_CERT_FILE="${OUTPUT_DIR}/server.crt"
+    SERVER_KEY_FILE="${OUTPUT_DIR}/server.key"
+    CLIENT_CERT_FILE="${OUTPUT_DIR}/client.crt"
+    CLIENT_KEY_FILE="${OUTPUT_DIR}/client.key"
+    
+    #
+    # Others
+    #
+    LOG_FILE="${CERT_WORK_DIR}/${PRGNAME}.log"
+    
+    #----------------------------------------------------------
+    # Check openssl command
+    #----------------------------------------------------------
+    OPENSSL_COMMAND=$(command -v openssl | tr -d '\n')
+    if [ $? -ne 0 ] || [ -z "${OPENSSL_COMMAND}" ]; then
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+    		echo "[ERROR] This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+    		exit 1
+    	fi
+    	${APK_COMMAND} add -q --no-progress --no-cache openssl
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] Failed to install openssl by apk(ALPINE)."
+    		exit 1
+    	fi
+    fi
+    
+    #----------------------------------------------------------
+    # Create openssl.cnf 
+    #----------------------------------------------------------
+    if [ ! -f "${ORG_OPENSSL_CNF}" ]; then
+    	echo "[ERROR] Could not find file ${ORG_OPENSSL_CNF}"
+    	exit 1
+    fi
+    
+    #
+    # Create openssl.cnf from /etc/pki/tls/openssl.cnf
+    # Modify values
+    #	unique_subject		= no						in [ CA_default ] section
+    #	email_in_dn			= no						in [ CA_default ] section
+    #	rand_serial			= no						in [ CA_default ] section
+    #	unique_subject		= no						in [ CA_default ] section
+    #	dir      			= <K2HDKC DBaaS K8S domain>	in [ CA_default ] section
+    #	keyUsage 			= cRLSign, keyCertSign		in [ v3_ca ] section
+    #	countryName			= optional					in [ policy_match ] section
+    #	stateOrProvinceName = optional					in [ policy_match ] section
+    #	organizationName	= optional					in [ policy_match ] section
+    #
+    sed -e 's/\[[[:space:]]*CA_default[[:space:]]*\]/\[ CA_default ]\nunique_subject = no\nemail_in_dn = no\nrand_serial = no/g' \
+    	-e 's/\[[[:space:]]*v3_ca[[:space:]]*\]/\[ v3_ca ]\nkeyUsage = cRLSign, keyCertSign/g'						\
+    	-e "s#^dir[[:space:]]*=[[:space:]]*.*CA.*#dir = ${CERT_WORK_DIR}#g"											\
+    	-e 's/^[[:space:]]*countryName[[:space:]]*=[[:space:]]*match.*$/countryName = optional/g'					\
+    	-e 's/^[[:space:]]*stateOrProvinceName[[:space:]]*=[[:space:]]*match.*$/stateOrProvinceName = optional/g'	\
+    	-e 's/^[[:space:]]*organizationName[[:space:]]*=[[:space:]]*match.*$/organizationName = optional/g'			\
+    	"${ORG_OPENSSL_CNF}"																						\
+    	> "${CUSTOM_OPENSSL_CNF}"
+    
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] Could not create file ${CUSTOM_OPENSSL_CNF}"
+    	exit 1
+    fi
+    
+    
+    #
+    # Add section to  openssl.cnf
+    #	[ v3_svr_clt ]									add section
+    #
+    SAN_SETTINGS=""
+    if [ -n "${FULL_HOST_NAME}" ]; then
+    	SAN_SETTINGS="DNS:${FULL_HOST_NAME}"
+    fi
+    if [ -n "${LOCAL_HOST_DOMAIN}" ]; then
+    	if [ -z "${SAN_SETTINGS}" ]; then
+    		SAN_SETTINGS="DNS:${LOCAL_HOST_DOMAIN}"
+    	else
+    		SAN_SETTINGS="${SAN_SETTINGS}, DNS:${LOCAL_HOST_DOMAIN}"
+    	fi
+    fi
+    if [ -n "${SHORT_HOST_NAME}" ]; then
+    	if [ -z "${SAN_SETTINGS}" ]; then
+    		SAN_SETTINGS="DNS:${SHORT_HOST_NAME}"
+    	else
+    		SAN_SETTINGS="${SAN_SETTINGS}, DNS:${SHORT_HOST_NAME}"
+    	fi
+    fi
+    if [ -n "${NODOMAIN_HOST_NAME}" ]; then
+    	if [ -z "${SAN_SETTINGS}" ]; then
+    		SAN_SETTINGS="DNS:${NODOMAIN_HOST_NAME}"
+    	else
+    		SAN_SETTINGS="${SAN_SETTINGS}, DNS:${NODOMAIN_HOST_NAME}"
+    	fi
+    fi
+    if [ -n "${LOCAL_HOST_IP}" ]; then
+    	if [ -z "${SAN_SETTINGS}" ]; then
+    		SAN_SETTINGS="IP:${LOCAL_HOST_IP}"
+    	else
+    		SAN_SETTINGS="${SAN_SETTINGS}, IP:${LOCAL_HOST_IP}"
+    	fi
+    fi
+    {
+    	echo ""
+    	echo "[ v3_svr_clt ]"
+    	echo "basicConstraints=CA:FALSE"
+    	echo "keyUsage = digitalSignature, keyEncipherment"
+    	echo "extendedKeyUsage = serverAuth, clientAuth"
+    	echo "subjectKeyIdentifier=hash"
+    	echo "authorityKeyIdentifier=keyid,issuer"
+    	if [ -n "${SAN_SETTINGS}" ]; then
+    		echo "subjectAltName = ${SAN_SETTINGS}"
+    	fi
+    } >> "${CUSTOM_OPENSSL_CNF}"
+    
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] Could not modify file ${CUSTOM_OPENSSL_CNF}"
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Create certificates
+    #----------------------------------------------------------
+    #
+    # Create private key(2048 bit) without passphrase
+    #
+    openssl genrsa				\
+    	-out "${RAW_KEY_FILE}"	\
+    	2048					\
+    	>> "${LOG_FILE}" 2>&1
+    
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] Failed to create ${RAW_KEY_FILE} private key."
+    	exit 1
+    fi
+    
+    chmod 0400 "${RAW_KEY_FILE}"
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] Failed to set permission(0400) to ${RAW_KEY_FILE} private key."
+    	exit 1
+    fi
+    
+    #
+    # Create CSR file
+    #
+    openssl req						\
+    	-new						\
+    	-key  "${RAW_KEY_FILE}"	\
+    	-out  "${RAW_CSR_FILE}"	\
+    	-subj "/C=${SUBJ_CSR_C}/ST=${SUBJ_CSR_S}/O=${SUBJ_CSR_O}/CN=${NODOMAIN_HOST_NAME}"	\
+    	>> "${LOG_FILE}" 2>&1
+    
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] Failed to create ${RAW_CSR_FILE} CSR file."
+    	exit 1
+    fi
+    
+    #
+    # Create certificate file
+    #
+    openssl ca								\
+    	-batch								\
+    	-extensions	v3_svr_clt				\
+    	-out		"${RAW_CERT_FILE}"		\
+    	-days		"${CERT_PERIOD_DAYS}"	\
+    	-passin		"pass:"					\
+    	-config		"${CUSTOM_OPENSSL_CNF}" \
+    	-infiles	"${RAW_CSR_FILE}"		\
+    	>> "${LOG_FILE}" 2>&1
+    
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] Failed to create ${RAW_CERT_FILE} certificate file."
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Set files to /etc/antpickax
+    #----------------------------------------------------------
+    COPY_RESULT=0
+    cp -p "${ORG_CA_CERT_FILE}"	"${CA_CERT_FILE}"		|| COPY_RESULT=1
+    cp -p "${RAW_CERT_FILE}"	"${SERVER_CERT_FILE}"	|| COPY_RESULT=1
+    cp -p "${RAW_KEY_FILE}"		"${SERVER_KEY_FILE}"	|| COPY_RESULT=1
+    cp -p "${RAW_CERT_FILE}"	"${CLIENT_CERT_FILE}"	|| COPY_RESULT=1
+    cp -p "${RAW_KEY_FILE}"		"${CLIENT_KEY_FILE}"	|| COPY_RESULT=1
+    chmod 0444 "${CA_CERT_FILE}"						|| COPY_RESULT=1
+    chmod 0444 "${SERVER_CERT_FILE}"					|| COPY_RESULT=1
+    chmod 0400 "${SERVER_KEY_FILE}"						|| COPY_RESULT=1
+    chmod 0444 "${CLIENT_CERT_FILE}"					|| COPY_RESULT=1
+    chmod 0400 "${CLIENT_KEY_FILE}"						|| COPY_RESULT=1
+    
+    if [ "${COPY_RESULT}" -ne 0 ]; then
+    	echo "[ERROR] Failed to copy certificate files."
+    	exit 1
+    fi
+    
+    #
+    # Cleanup files
+    #
+    rm -rf "${CERT_WORK_DIR}"
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] Could not remove directory ${CERT_WORK_DIR}"
+    	exit 1
+    fi
+    
+    exit 0
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-setup-k2hr3-data.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #----------------------------------------------------------
+    # Environments
+    #----------------------------------------------------------
+    # This script uses following environments
+    #
+    #	ANTPICKAX_ETC_DIR			ex. /etc/antpickax
+    #	K2HR3_API_URL				ex. https://<k2hr3 api host>:<port=443>
+    #	K2HR3_TENANT				ex. default
+    #	SEC_CA_MOUNTPOINT			ex. /secret-ca
+    #	SEC_K2HR3_TOKEN_MOUNTPOINT	ex. /secret-k2hr3-token
+    #	SEC_UTOKEN_FILENAME			ex. unscopedToken
+    #	K2HDKC_CLUSTER_NAME			ex. mydbaas
+    #	K2HDKC_SVR_PORT				ex. 8020
+    #	K2HDKC_SVR_CTLPORT			ex. 8021
+    #	K2HDKC_SLV_CTLPORT			ex. 8022
+    #	K2HDKC_INI_TEMPL_FILE		ex. /configmap/dbaas-k2hdkc.ini.templ
+    #
+    
+    #----------------------------------------------------------
+    # Common Variables
+    #----------------------------------------------------------
+    PRGNAME=$(basename "$0")
+    SCRIPTDIR=$(dirname "$0")
+    SCRIPTDIR=$(cd "${SCRIPTDIR}" || exit 1; pwd)
+    
+    #
+    # Check environments
+    #
+    if [ "X${ANTPICKAX_ETC_DIR}" = "X" ] || [ ! -d "${ANTPICKAX_ETC_DIR}" ]; then
+    	mkdir -p "${ANTPICKAX_ETC_DIR}"
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : ANTPICKAX_ETC_DIR environment is not set or could not create it." 1>&2
+    		exit 1
+    	fi
+    fi
+    if [ "X${K2HR3_API_URL}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HR3_API_URL environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HR3_TENANT}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HR3_TENANT environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${SEC_CA_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_CA_MOUNTPOINT}" ]; then
+    	echo "[ERROR] ${PRGNAME} : SEC_CA_MOUNTPOINT environment is not set or not directory." 1>&2
+    	exit 1
+    fi
+    if [ "X${SEC_K2HR3_TOKEN_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_K2HR3_TOKEN_MOUNTPOINT}" ]; then
+    	echo "[ERROR] ${PRGNAME} : SEC_K2HR3_TOKEN_MOUNTPOINT environment is not set or not directory." 1>&2
+    	exit 1
+    fi
+    if [ "X${SEC_UTOKEN_FILENAME}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : SEC_UTOKEN_FILENAME environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_CLUSTER_NAME}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_CLUSTER_NAME environment is not set." 1>&2
+    	exit 1
+    fi
+    
+    if [ "X${K2HDKC_SVR_PORT}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_SVR_PORT environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_SVR_CTLPORT}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_SVR_CTLPORT environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_SLV_CTLPORT}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_SLV_CTLPORT environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_INI_TEMPL_FILE}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_INI_TEMPL_FILE environment is not set." 1>&2
+    	exit 1
+    fi
+    
+    #
+    # Temporary files
+    #
+    K2HDKC_INI_EXPAND_FILE="/tmp/${PRGNAME}_k2hdkc.ini"
+    RESOURCE_BODY_FILE="/tmp/${PRGNAME}_resource.body"
+    RESPONSE_FILE="/tmp/${PRGNAME}_response.result"
+    
+    #
+    # Request options for curl
+    #
+    REQOPT_SILENT="-s -S"
+    REQOPT_EXITCODE="-w '%{http_code}\n'"
+    REQOPT_OUTPUT="-o ${RESPONSE_FILE}"
+    
+    #
+    # Request options for CA certificate
+    #
+    REQOPT_CACERT=""
+    if [ -n "${SEC_CA_MOUNTPOINT}" ] && [ -d "${SEC_CA_MOUNTPOINT}" ]; then
+    	CA_CERT_FILE=$(find "${SEC_CA_MOUNTPOINT}/" -name '*_CA.crt' | head -1)
+    	if [ "X${CA_CERT_FILE}" != "X" ]; then
+    		REQOPT_CACERT="--cacert ${CA_CERT_FILE}"
+    	fi
+    fi
+    
+    #----------------------------------------------------------
+    # Check curl command
+    #----------------------------------------------------------
+    CURL_COMMAND=$(command -v curl | tr -d '\n')
+    if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+    		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+    		exit 1
+    	fi
+    	${APK_COMMAND} add -q --no-progress --no-cache curl
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    fi
+    
+    #----------------------------------------------------------
+    # Scoped token
+    #----------------------------------------------------------
+    # [Input]
+    #	$1		unscoped token
+    #	$2		tenant name
+    #
+    # [Using global variables]
+    #	REQOPT_SILENT
+    #	REQOPT_CACERT
+    #	REQOPT_EXITCODE
+    #	REQOPT_OUTPUT
+    #	RESPONSE_FILE
+    #
+    # Result:	$?
+    #			K2HR3_SCOPED_TOKEN
+    #
+    get_k2hr3_scoped_token()
+    {
+    	_K2HR3_UNSCOPED_TOKEN="$1"
+    	_K2HR3_TENANT_NAME="$2"
+    
+    	REQUEST_POST_BODY="-d '{\"auth\":{\"tenantName\":\"${_K2HR3_TENANT_NAME}\"}}'"
+    	REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${_K2HR3_UNSCOPED_TOKEN}\""
+    
+    	rm -f "${RESPONSE_FILE}"
+    
+    	#
+    	# [Request]
+    	#	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<utoken>" -d '{"auth":{"tenantName":"<tenant>"}}' -X POST https://<k2hr3 api>/v1/user/tokens
+    	# [Response]
+    	#	201
+    	#	{"result":true,"message":"succeed","scoped":true,"token":"<token>"}
+    	#
+    	REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens")
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    	if [ "X${REQ_EXIT_CODE}" != "X201" ]; then
+    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})"
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    
+    	REQ_RESULT=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*result=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	REQ_SCOPED=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*scoped=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "X${REQ_RESULT}" != "Xtrue" ] || [ "X${REQ_SCOPED}" != "Xtrue" ]; then
+    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\""
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    
+    	K2HR3_SCOPED_TOKEN="${REQ_TOKEN}"
+    
+    	rm -f "${RESPONSE_FILE}"
+    	return 0
+    }
+    
+    #----------------------------------------------------------
+    # Post request utility
+    #----------------------------------------------------------
+    # [Input]
+    #	$1		url path(ex. /v1/role)
+    #	$2		body type("STRING" or "FILE")
+    #	$3		post body string or file path
+    #
+    # [Using global variables]
+    #	REQOPT_SILENT
+    #	REQOPT_CACERT
+    #	REQOPT_EXITCODE
+    #	REQOPT_OUTPUT
+    #	RESPONSE_FILE
+    #	K2HR3_API_URL
+    #	K2HR3_SCOPED_TOKEN
+    #
+    # Result:	$?
+    #
+    raw_post_request()
+    {
+    	REQUERST_URL_PATH="$1"
+    	if [ "X$2" = "XFILE" ]; then
+    		REQUEST_POST_BODY="--data-binary @$3"
+    	else
+    		REQUEST_POST_BODY="-d '$3'"
+    	fi
+    	REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_SCOPED_TOKEN}\""
+    
+    	rm -f "${RESPONSE_FILE}"
+    
+    	REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}${REQUERST_URL_PATH}")
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed with curl error code"
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    	if [ "X${REQ_EXIT_CODE}" != "X201" ]; then
+    		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed with http exit code(${REQ_EXIT_CODE})"
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    
+    	RESPONSE_RESULT=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*result=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	RESPONSE_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	if [ -z "${RESPONSE_RESULT}" ] || [ "X${RESPONSE_RESULT}" != "Xtrue" ]; then
+    		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed by \"${RESPONSE_MESSAGE}\""
+    		rm -f "${RESPONSE_FILE}"
+    		exit 1
+    	fi
+    
+    	rm -f "${RESPONSE_FILE}"
+    	return 0
+    }
+    
+    #----------------------------------------------------------
+    # Create INI file(expand from template)
+    #----------------------------------------------------------
+    # [Input]
+    #	$1		input file path
+    #	$1		output file path
+    #
+    # [Using global variables]
+    #	SEC_CA_MOUNTPOINT
+    #	ANTPICKAX_ETC_DIR
+    #	K2HR3_TENANT
+    #	K2HDKC_CLUSTER_NAME
+    #
+    # Result:	$?
+    #
+    expanded_ini_file()
+    {
+    	INPUT_INI_FILE="$1"
+    	OUTPUT_INI_FILE="$2"
+    
+    	if [ "X${SEC_CA_MOUNTPOINT}" != "X" ]; then
+    		INIPART_SSL="SSL = on"
+    		INIPART_SSL_VERIFY_PEER="SSL_VERIFY_PEER = on"
+    		INIPART_CAPATH="CAPATH = ${ANTPICKAX_ETC_DIR}/ca.crt"
+    		INIPART_SERVER_CERT="SERVER_CERT = ${ANTPICKAX_ETC_DIR}/server.crt"
+    		INIPART_SERVER_PRIKEY="SERVER_PRIKEY = ${ANTPICKAX_ETC_DIR}/server.key"
+    		INIPART_SLAVE_CERT="SLAVE_CERT = ${ANTPICKAX_ETC_DIR}/client.crt"
+    		INIPART_SLAVE_PRIKEY="SLAVE_PRIKEY = ${ANTPICKAX_ETC_DIR}/client.key"
+    	else
+    		INIPART_SSL="SSL = no"
+    		INIPART_SSL_VERIFY_PEER=""
+    		INIPART_CAPATH=""
+    		INIPART_SERVER_CERT=""
+    		INIPART_SERVER_PRIKEY=""
+    		INIPART_SLAVE_CERT=""
+    		INIPART_SLAVE_PRIKEY=""
+    	fi
+    	INI_SSL_SETTING="${INIPART_SSL}\\n${INIPART_SSL_VERIFY_PEER}\\n${INIPART_CAPATH}\\n${INIPART_SERVER_CERT}\\n${INIPART_SERVER_PRIKEY}\\n${INIPART_SLAVE_CERT}\\n${INIPART_SLAVE_PRIKEY}"
+    
+    	sed	-e "s#%%K2HR3_TENANT_NAME%%#${K2HR3_TENANT}#g"					\
+    		-e "s#%%K2HDKC_DBAAS_CLUSTER_NAME%%#${K2HDKC_CLUSTER_NAME}#g"	\
+    		-e "s#%%CHMPX_SSL_SETTING%%#${INI_SSL_SETTING}#g"				\
+    		"${INPUT_INI_FILE}"												\
+    		> "${OUTPUT_INI_FILE}"
+    
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Failed expand ini file from ${INPUT_INI_FILE} to ${OUTPUT_INI_FILE}"
+    		rm -f "${OUTPUT_INI_FILE}"
+    		return 1
+    	fi
+    
+    	return 0
+    }
+    
+    #----------------------------------------------------------
+    # Get scoped token for tenant
+    #----------------------------------------------------------
+    if [ ! -f "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HR3 Unscoped token file(${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}) is not existed."
+    	exit 1
+    fi
+    K2HR3_UNSCOPED_TOKEN=$(tr -d '\n' < "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}")
+    
+    get_k2hr3_scoped_token "${K2HR3_UNSCOPED_TOKEN}" "${K2HR3_TENANT}"
+    if [ $? -ne 0 ] || [ -z "${K2HR3_SCOPED_TOKEN}" ]; then
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Expand INI file
+    #----------------------------------------------------------
+    expanded_ini_file "${K2HDKC_INI_TEMPL_FILE}" "${K2HDKC_INI_EXPAND_FILE}"
+    if [ $? -ne 0 ] || [ ! -f "${K2HDKC_INI_EXPAND_FILE}" ]; then
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Set RESOURCE(main)
+    #----------------------------------------------------------
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<token>" -d '.....' -X POST https://<k2hr3 api>/v1/resource
+    #	body = {
+    #			"resource": {
+    #				"name": <cluster name>,
+    #				"type": "string",
+    #				"data": <ini file>,
+    #				"keys": {
+    #					foo: bar,
+    #				}
+    #			}
+    #		}
+    #
+    # [Response]
+    #	201
+    #	{"result":true,"message":"succeed"}
+    #
+    RESOURCE_MAIN_KEYS="{\"cluster-name\":\"${K2HDKC_CLUSTER_NAME}\",\"chmpx-server-port\":${K2HDKC_SVR_PORT},\"chmpx-server-ctlport\":${K2HDKC_SVR_CTLPORT},\"chmpx-slave-ctlport\":${K2HDKC_SLV_CTLPORT}}"
+    RESOURCE_MAIN_DATA=$(sed -e ':loop; N; $!b loop; s/\n/\\n/g' -e 's/"/\\"/g' "${K2HDKC_INI_EXPAND_FILE}")
+    RESOURCE_MAIN_ALL="{\"resource\":{\"name\":\"${K2HDKC_CLUSTER_NAME}\",\"type\":\"string\",\"data\":\"${RESOURCE_MAIN_DATA}\",\"keys\":${RESOURCE_MAIN_KEYS}}}"
+    echo "${RESOURCE_MAIN_ALL}" > "${RESOURCE_BODY_FILE}"
+    
+    raw_post_request "/v1/resource" "FILE" "${RESOURCE_BODY_FILE}"
+    if [ $? -ne 0 ]; then
+    	rm -f "${K2HDKC_INI_EXPAND_FILE}"
+    	rm -f "${RESOURCE_BODY_FILE}"
+    	exit 1
+    fi
+    rm -f "${K2HDKC_INI_EXPAND_FILE}"
+    rm -f "${RESOURCE_BODY_FILE}"
+    
+    #----------------------------------------------------------
+    # Set RESOURCE(server/slave)
+    #----------------------------------------------------------
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<token>" -d '.....' -X POST https://<k2hr3 api>/v1/resource
+    #	body = {
+    #			"resource": {
+    #				"name": <cluster name/(server|slave)>,
+    #				"type": "string",
+    #				"data": "",
+    #				"keys": {
+    #					"chmpx-mode": "SERVER|SLAVE",
+    #				}
+    #			}
+    #		}
+    #
+    # [Response]
+    #	201
+    #	{"result":true,"message":"succeed"}
+    #
+    RESOURCE_SERVER_ALL="{\"resource\":{\"name\":\"${K2HDKC_CLUSTER_NAME}/server\",\"type\":\"string\",\"data\":\"\",\"keys\":{\"chmpx-mode\":\"SERVER\"}}}"
+    RESOURCE_SLAVE_ALL="{\"resource\":{\"name\":\"${K2HDKC_CLUSTER_NAME}/slave\",\"type\":\"string\",\"data\":\"\",\"keys\":{\"chmpx-mode\":\"SLAVE\"}}}"
+    
+    #
+    # resource for server
+    #
+    raw_post_request "/v1/resource" "STRING" "${RESOURCE_SERVER_ALL}"
+    if [ $? -ne 0 ]; then
+    	exit 1
+    fi
+    
+    #
+    # resource for slave
+    #
+    raw_post_request "/v1/resource" "STRING" "${RESOURCE_SLAVE_ALL}"
+    if [ $? -ne 0 ]; then
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Set POLICY
+    #----------------------------------------------------------
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<token>" -d '.....' -X POST https://<k2hr3 api>/v1/policy
+    #	body = {
+    #			policy:	{
+    #				name:		<cluster name>
+    #				effect:		allow
+    #				action:		["yrn:yahoo::::action:read"]
+    #				resource:  [
+    #					"yrn:yahoo:::<tenant>:resource:<cluster name>/server",
+    #					"yrn:yahoo:::<tenant>:resource:<cluster name>/slave"
+    #				]
+    #			}
+    #		}
+    #
+    # [Response]
+    #	201
+    #	{"result":true,"message":"succeed"}
+    #
+    POLICY_ALL="{\"policy\":{\"name\":\"${K2HDKC_CLUSTER_NAME}\",\"effect\":\"allow\",\"action\":[\"yrn:yahoo::::action:read\"],\"resource\":[\"yrn:yahoo:::${K2HR3_TENANT}:resource:${K2HDKC_CLUSTER_NAME}/server\",\"yrn:yahoo:::${K2HR3_TENANT}:resource:${K2HDKC_CLUSTER_NAME}/slave\"]}}"
+    
+    raw_post_request "/v1/policy" "STRING" "${POLICY_ALL}"
+    if [ $? -ne 0 ]; then
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Set ROLE(main)
+    #----------------------------------------------------------
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<token>" -d '.....' -X POST https://<k2hr3 api>/v1/role
+    #	body = {
+    #		"role":	{
+    #			"name":	<cluster name>,
+    #			"policies": [
+    #				"yrn:yahoo:::<tenant>:policy:<cluster name>"
+    #			]
+    #		}
+    #	}
+    #
+    # [Response]
+    #	201
+    #	{"result":true,"message":"succeed"}
+    #
+    ROLE_ALL="{\"role\":{\"name\":\"${K2HDKC_CLUSTER_NAME}\",\"policies\":[\"yrn:yahoo:::${K2HR3_TENANT}:policy:${K2HDKC_CLUSTER_NAME}\"]}}"
+    
+    raw_post_request "/v1/role" "STRING" "${ROLE_ALL}"
+    if [ $? -ne 0 ]; then
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Set ROLE(server/slave)
+    #----------------------------------------------------------
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<token>" -d '.....' -X POST https://<k2hr3 api>/v1/role
+    #	body = {
+    #		"role":	{
+    #			"name":	<cluster name>/<server|slave>,
+    #		}
+    #	}
+    #
+    # [Response]
+    #	201
+    #	{"result":true,"message":"succeed"}
+    #
+    ROLE_SERVER_ALL="{\"role\":{\"name\":\"${K2HDKC_CLUSTER_NAME}/server\"}}"
+    ROLE_SLAVE_ALL="{\"role\":{\"name\":\"${K2HDKC_CLUSTER_NAME}/slave\"}}"
+    
+    #
+    # for for server
+    #
+    raw_post_request "/v1/role" "STRING" "${ROLE_SERVER_ALL}"
+    if [ $? -ne 0 ]; then
+    	exit 1
+    fi
+    
+    #
+    # for for slave
+    #
+    raw_post_request "/v1/role" "STRING" "${ROLE_SLAVE_ALL}"
+    if [ $? -ne 0 ]; then
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Finish
+    #----------------------------------------------------------
+    echo "[SUCCEED] ${PRGNAME} : Create K2HR3 Resource/Policy/Role for ${K2HDKC_CLUSTER_NAME}"
+    exit 0
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-unsetup-k2hr3-data.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #----------------------------------------------------------
+    # Environments
+    #----------------------------------------------------------
+    # This script uses following environments
+    #
+    #	K2HR3_API_URL				ex. https://<k2hr3 api host>:<port=443>
+    #	K2HR3_TENANT				ex. default
+    #	SEC_CA_MOUNTPOINT			ex. /secret-ca
+    #	SEC_K2HR3_TOKEN_MOUNTPOINT	ex. /secret-k2hr3-token
+    #	SEC_UTOKEN_FILENAME			ex. unscopedToken
+    #	K2HDKC_CLUSTER_NAME			ex. mydbaas
+    #
+    
+    #----------------------------------------------------------
+    # Common Variables
+    #----------------------------------------------------------
+    PRGNAME=$(basename "$0")
+    SCRIPTDIR=$(dirname "$0")
+    SCRIPTDIR=$(cd "${SCRIPTDIR}" || exit 1; pwd)
+    
+    #
+    # Check environments
+    #
+    if [ "X${K2HR3_API_URL}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HR3_API_URL environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HR3_TENANT}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HR3_TENANT environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${SEC_CA_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_CA_MOUNTPOINT}" ]; then
+    	echo "[ERROR] ${PRGNAME} : SEC_CA_MOUNTPOINT environment is not set or not directory." 1>&2
+    	exit 1
+    fi
+    if [ "X${SEC_K2HR3_TOKEN_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_K2HR3_TOKEN_MOUNTPOINT}" ]; then
+    	echo "[ERROR] ${PRGNAME} : SEC_K2HR3_TOKEN_MOUNTPOINT environment is not set or not directory." 1>&2
+    	exit 1
+    fi
+    if [ "X${SEC_UTOKEN_FILENAME}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : SEC_UTOKEN_FILENAME environment is not set." 1>&2
+    	exit 1
+    fi
+    if [ "X${K2HDKC_CLUSTER_NAME}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_CLUSTER_NAME environment is not set." 1>&2
+    	exit 1
+    fi
+    
+    #
+    # Temporary files
+    #
+    RESPONSE_FILE="/tmp/${PRGNAME}_response.result"
+    
+    #
+    # Request options for curl
+    #
+    REQOPT_SILENT="-s -S"
+    REQOPT_EXITCODE="-w '%{http_code}\n'"
+    REQOPT_OUTPUT="-o ${RESPONSE_FILE}"
+    
+    #
+    # Request options for CA certificate
+    #
+    REQOPT_CACERT=""
+    if [ -n "${SEC_CA_MOUNTPOINT}" ] && [ -d "${SEC_CA_MOUNTPOINT}" ]; then
+    	CA_CERT_FILE=$(find "${SEC_CA_MOUNTPOINT}/" -name '*_CA.crt' | head -1)
+    	if [ "X${CA_CERT_FILE}" != "X" ]; then
+    		REQOPT_CACERT="--cacert ${CA_CERT_FILE}"
+    	fi
+    fi
+    
+    #----------------------------------------------------------
+    # Check curl command
+    #----------------------------------------------------------
+    CURL_COMMAND=$(command -v curl | tr -d '\n')
+    if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+    		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+    		exit 1
+    	fi
+    	${APK_COMMAND} add -q --no-progress --no-cache curl
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    fi
+    
+    #----------------------------------------------------------
+    # Scoped token
+    #----------------------------------------------------------
+    # [Input]
+    #	$1		unscoped token
+    #	$2		tenant name
+    #
+    # [Using global variables]
+    #	REQOPT_SILENT
+    #	REQOPT_CACERT
+    #	REQOPT_EXITCODE
+    #	REQOPT_OUTPUT
+    #	RESPONSE_FILE
+    #
+    # Result:	$?
+    #			K2HR3_SCOPED_TOKEN
+    #
+    get_k2hr3_scoped_token()
+    {
+    	_K2HR3_UNSCOPED_TOKEN="$1"
+    	_K2HR3_TENANT_NAME="$2"
+    
+    	REQUEST_POST_BODY="-d '{\"auth\":{\"tenantName\":\"${_K2HR3_TENANT_NAME}\"}}'"
+    	REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${_K2HR3_UNSCOPED_TOKEN}\""
+    
+    	rm -f "${RESPONSE_FILE}"
+    
+    	#
+    	# [Request]
+    	#	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<utoken>" -d '{"auth":{"tenantName":"<tenant>"}}' -X POST https://<k2hr3 api>/v1/user/tokens
+    	# [Response]
+    	#	201
+    	#	{"result":true,"message":"succeed","scoped":true,"token":"<token>"}
+    	#
+    	REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens")
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    	if [ "X${REQ_EXIT_CODE}" != "X201" ]; then
+    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})"
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    
+    	REQ_RESULT=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*result=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	REQ_SCOPED=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*scoped=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
+    	if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "X${REQ_RESULT}" != "Xtrue" ] || [ "X${REQ_SCOPED}" != "Xtrue" ]; then
+    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\""
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    
+    	K2HR3_SCOPED_TOKEN="${REQ_TOKEN}"
+    
+    	rm -f "${RESPONSE_FILE}"
+    	return 0
+    }
+    
+    #----------------------------------------------------------
+    # Delete request utility
+    #----------------------------------------------------------
+    # [Input]
+    #	$1		url path(ex. /v1/role)
+    #
+    # [Using global variables]
+    #	REQOPT_SILENT
+    #	REQOPT_CACERT
+    #	REQOPT_EXITCODE
+    #	REQOPT_OUTPUT
+    #	RESPONSE_FILE
+    #	K2HR3_API_URL
+    #	K2HR3_SCOPED_TOKEN
+    #
+    # Result:	$?
+    #
+    raw_delete_request()
+    {
+    	REQUERST_URL_PATH="$1"
+    	REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_SCOPED_TOKEN}\""
+    
+    	rm -f "${RESPONSE_FILE}"
+    
+    	REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X DELETE ${K2HR3_API_URL}${REQUERST_URL_PATH}")
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Delete request(${REQUERST_URL_PATH}) is failed with curl error code"
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    	if [ "X${REQ_EXIT_CODE}" != "X204" ]; then
+    		echo "[ERROR] ${PRGNAME} : Delete request(${REQUERST_URL_PATH}) is failed with http exit code(${REQ_EXIT_CODE})"
+    		rm -f "${RESPONSE_FILE}"
+    		return 1
+    	fi
+    
+    	rm -f "${RESPONSE_FILE}"
+    	return 0
+    }
+    
+    #----------------------------------------------------------
+    # Get scoped token for tenant
+    #----------------------------------------------------------
+    if [ ! -f "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HR3 Unscoped token file(${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}) is not existed."
+    	exit 1
+    fi
+    K2HR3_UNSCOPED_TOKEN=$(tr -d '\n' < "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}")
+    
+    get_k2hr3_scoped_token "${K2HR3_UNSCOPED_TOKEN}" "${K2HR3_TENANT}"
+    if [ $? -ne 0 ] || [ -z "${K2HR3_SCOPED_TOKEN}" ]; then
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Variable for result
+    #----------------------------------------------------------
+    IS_FAIL_DELETE=0
+    
+    #----------------------------------------------------------
+    # DELETE ROLE(main/server/slave)
+    #----------------------------------------------------------
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<token>" -X DELETE https://<k2hr3 api>/v1/role
+    #
+    # [Response]
+    #	204
+    #
+    IS_SAFE_REMOVE_MAIN=1
+    
+    #
+    # role for server
+    #
+    raw_delete_request "/v1/role/${K2HDKC_CLUSTER_NAME}/server"
+    if [ $? -ne 0 ]; then
+    	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME}/server role, but continue..."
+    	IS_SAFE_REMOVE_MAIN=0
+    	IS_FAIL_DELETE=1
+    fi
+    
+    #
+    # role for slave
+    #
+    raw_delete_request "/v1/role/${K2HDKC_CLUSTER_NAME}/slave"
+    if [ $? -ne 0 ]; then
+    	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME}/server role, but continue..."
+    	IS_SAFE_REMOVE_MAIN=0
+    	IS_FAIL_DELETE=1
+    fi
+    
+    #
+    # role for main
+    #
+    if [ "${IS_SAFE_REMOVE_MAIN}" -eq 1 ]; then
+    	raw_delete_request "/v1/role/${K2HDKC_CLUSTER_NAME}"
+    	if [ $? -ne 0 ]; then
+    		echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME} role, but continue..."
+    		IS_FAIL_DELETE=1
+    	fi
+    else
+    	echo "[WARNING] ${PRGNAME} : Did not delete ${K2HDKC_CLUSTER_NAME} role, because server or slave role was not deleted."
+    fi
+    
+    #----------------------------------------------------------
+    # Delete POLICY
+    #----------------------------------------------------------
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<token>" -X DELETE https://<k2hr3 api>/v1/policy
+    #
+    # [Response]
+    #	204
+    #
+    raw_delete_request "/v1/policy/${K2HDKC_CLUSTER_NAME}"
+    if [ $? -ne 0 ]; then
+    	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME} policy, but continue..."
+    	IS_FAIL_DELETE=1
+    fi
+    
+    #----------------------------------------------------------
+    # Delete RESOURCE(main/server/slave)
+    #----------------------------------------------------------
+    # [Request]
+    #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<token>" -X DELETE https://<k2hr3 api>/v1/resource
+    #
+    # [Response]
+    #	204
+    #
+    IS_SAFE_REMOVE_MAIN=1
+    
+    #
+    # resource for server
+    #
+    raw_delete_request "/v1/resource/${K2HDKC_CLUSTER_NAME}/server"
+    if [ $? -ne 0 ]; then
+    	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME}/server resource, but continue..."
+    	IS_SAFE_REMOVE_MAIN=0
+    	IS_FAIL_DELETE=1
+    fi
+    
+    #
+    # resource for slave
+    #
+    raw_delete_request "/v1/resource/${K2HDKC_CLUSTER_NAME}/slave"
+    if [ $? -ne 0 ]; then
+    	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME}/slave resource, but continue..."
+    	IS_SAFE_REMOVE_MAIN=0
+    	IS_FAIL_DELETE=1
+    fi
+    
+    #
+    # resource for main
+    #
+    if [ "${IS_SAFE_REMOVE_MAIN}" -eq 1 ]; then
+    	raw_delete_request "/v1/resource/${K2HDKC_CLUSTER_NAME}"
+    	if [ $? -ne 0 ]; then
+    		echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME} resource, but continue..."
+    		IS_FAIL_DELETE=1
+    	fi
+    else
+    	echo "[WARNING] ${PRGNAME} : Did not delete ${K2HDKC_CLUSTER_NAME} resource, because server or slave role was not deleted."
+    fi
+    
+    #----------------------------------------------------------
+    # Finish
+    #----------------------------------------------------------
+    if [ "${IS_FAIL_DELETE}" -ne 0 ]; then
+    	echo "[FAILED] ${PRGNAME} : Failed deleting some K2HR3 Resource/Policy/Role for ${K2HDKC_CLUSTER_NAME}"
+    	exit 1
+    fi
+    
+    echo "[SUCCEED] ${PRGNAME} : Delete all K2HR3 Resource/Policy/Role for ${K2HDKC_CLUSTER_NAME}"
+    exit 0
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-k2hdkc-dummyslave.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #PRGNAME=$(basename "$0")
+    SCRIPTDIR=$(dirname "$0")
+    SCRIPTDIR=$(cd "${SCRIPTDIR}" || exit 1; pwd)
+    
+    #
+    # Loop for dummy slave container
+    #
+    BREAK_LOOP=0
+    while [ "${BREAK_LOOP}" -eq 0 ]; do
+    	sleep 60
+    	if [ $? -ne 0 ]; then
+    		BREAK_LOOP=1
+    	fi
+    done
+    
+    exit 0
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-k2hdkc-check.sh: |-
+    #!/bin/sh
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #----------------------------------------------------------
+    # Input variables by environment
+    #----------------------------------------------------------
+    # K2HDKC_CLUSTER_NAME				k2hdkc cluster name
+    # K2HDKC_SERVER_COUNT				count of k2hdkc server node
+    #
+    PRGNAME=$(basename "$0")
+    SCRIPTDIR=$(dirname "$0")
+    SCRIPTDIR=$(cd "${SCRIPTDIR}" || exit 1; pwd)
+    
+    #----------------------------------------------------------
+    # Check enviroment values
+    #----------------------------------------------------------
+    if [ "X${K2HDKC_CLUSTER_NAME}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_CLUSTER_NAME environment is not specified."
+    	exit 1
+    fi
+    if [ "X${K2HDKC_SERVER_COUNT}" = "X" ]; then
+    	echo "[ERROR] ${PRGNAME} : K2HDKC_SERVER_COUNT environment is not specified."
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Check curl command and install
+    #----------------------------------------------------------
+    CURL_COMMAND=$(command -v curl | tr -d '\n')
+    if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+    		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+    		exit 1
+    	fi
+    	${APK_COMMAND} add -q --no-progress --no-cache curl
+    	if [ $? -ne 0 ]; then
+    		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    fi
+    
+    #----------------------------------------------------------
+    # Common values
+    #----------------------------------------------------------
+    ANTPICKAX_ETC_DIR="/etc/antpickax"
+    K2HR3_FILE_RESOURCE="k2hr3-resource"
+    
+    K2HR3_YRN_RESOURCE=$(tr -d '\n' < "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" 2>/dev/null)
+    CHMPX_MODE=$(echo "${K2HR3_YRN_RESOURCE}" | sed 's#[:/]# #g' | awk '{print $NF}')
+    INI_FILE="${CHMPX_MODE}.ini"
+    INI_FILE_PATH="${ANTPICKAX_ETC_DIR}/${INI_FILE}"
+    
+    TIMESTAMP=$(date "+%Y%m%d-%H:%M:%S")
+    
+    COMMAND_FILE="/tmp/command.run"
+    EXPECTED_FILE="/tmp/command.correct"
+    RESULT_FILE="/tmp/command.result"
+    
+    TEST_KEYNAME_BASE="check.${K2HDKC_CLUSTER_NAME}.${TIMESTAMP}.key-"
+    TEST_VALNAME_BASE="check.${K2HDKC_CLUSTER_NAME}.${TIMESTAMP}.val-"
+    
+    TEST_KEY_COUNT=$((K2HDKC_SERVER_COUNT * 10))
+    
+    #----------------------------------------------------------
+    # Set ini file by update script
+    #----------------------------------------------------------
+    /bin/sh "${SCRIPTDIR}"/dbaas-k2hdkc-ini-update.sh >/dev/null 2>&1 &
+    INI_UPDATE_PROCID=$!
+    
+    #----------------------------------------------------------
+    # Run chmpx slave process
+    #----------------------------------------------------------
+    #
+    # Wait for creating ini file
+    #
+    while [ ! -f "${INI_FILE_PATH}" ]; do
+    	sleep 10
+    done
+    
+    #
+    # Stop ini update script
+    # (The sleep process remains, but finishes by the time this script completes.)
+    #
+    kill -HUP "${INI_UPDATE_PROCID}" >/dev/null 2>&1
+    
+    #
+    # Run chmpx
+    #
+    chmpx -conf "${INI_FILE_PATH}" -d silent >/dev/null >&2 &
+    CHMPX_PROCID=$!
+    
+    #----------------------------------------------------------
+    # Create files for check
+    #----------------------------------------------------------
+    #
+    # Create command file
+    #
+    {
+    	for TMP_NUMBER in $(seq "${TEST_KEY_COUNT}"); do
+    		echo "sleep 1"
+    		echo "set ${TEST_KEYNAME_BASE}${TMP_NUMBER} ${TEST_VALNAME_BASE}${TMP_NUMBER}"
+    		echo "print ${TEST_KEYNAME_BASE}${TMP_NUMBER}"
+    		echo "rm ${TEST_KEYNAME_BASE}${TMP_NUMBER}"
+    	done
+    
+    	echo "quit"
+    
+    } > "${COMMAND_FILE}"
+    
+    #
+    # Create result file for comparing
+    #
+    {
+    	for TMP_NUMBER in $(seq "${TEST_KEY_COUNT}"); do
+    		echo "> sleep 1"
+    		echo "> set ${TEST_KEYNAME_BASE}${TMP_NUMBER} ${TEST_VALNAME_BASE}${TMP_NUMBER}"
+    		echo "> print ${TEST_KEYNAME_BASE}${TMP_NUMBER}"
+    		echo "\"${TEST_KEYNAME_BASE}${TMP_NUMBER}\" => \"${TEST_VALNAME_BASE}${TMP_NUMBER}\""
+    		echo "> rm ${TEST_KEYNAME_BASE}${TMP_NUMBER}"
+    	done
+    
+    	echo "> quit"
+    	echo "Quit."
+    
+    } > "${EXPECTED_FILE}"
+    
+    #----------------------------------------------------------
+    # Check Main
+    #----------------------------------------------------------
+    cleanup_all()
+    {
+    	#
+    	# Just in case, ini update process will also stop.
+    	#
+    	kill -HUP "${INI_UPDATE_PROCID}" "${CHMPX_PROCID}" >/dev/null 2>&1
+    	kill -KILL "${INI_UPDATE_PROCID}" "${CHMPX_PROCID}" >/dev/null 2>&1
+    	rm -f "${COMMAND_FILE}"
+    	rm -f "${EXPECTED_FILE}"
+    	rm -f "${RESULT_FILE}"
+    }
+    
+    #
+    # Wait for update chmpx server connection
+    #
+    sleep 60
+    
+    #
+    # Run k2hdkclinetool
+    #
+    k2hdkclinetool -conf "${INI_FILE_PATH}" -perm -run "${COMMAND_FILE}"  > "${RESULT_FILE}"
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : Failed to run k2hdkclinetool command."
+    	cleanup_all
+    	exit 1
+    fi
+    
+    #
+    # Compare result
+    #
+    diff "${EXPECTED_FILE}" "${RESULT_FILE}" >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+    	echo "[ERROR] ${PRGNAME} : The k2hdkclinetool test result is different from the expected result."
+    	cleanup_all
+    	exit 1
+    fi
+    
+    #
+    # Cleanup all
+    #
+    cleanup_all
+    
+    #----------------------------------------------------------
+    # Finish
+    #----------------------------------------------------------
+    echo "[SUCCEED] ${PRGNAME} : No problem K2HDKC DBaaS Cluster."
+    
+    exit 0
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+    
+  dbaas-k2hdkc.ini.templ: |-
+    {{#!k2hr3template }}
+    #
+    # K2HDKC DBaaS Helm Chart
+    #
+    # Copyright 2022 Yahoo! Japan Corporation.
+    #
+    # K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+    # which is built K2HR3 as a backend and provides services in
+    # cooperation with Kubernetes.
+    # The Override configuration for K2HDKC DBaaS serves to connect the
+    # components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+    # and K2HASH are components provided as AntPickax.
+    #
+    # For the full copyright and license information, please view
+    # the license file that was distributed with this source code.
+    #
+    # AUTHOR:   Takeshi Nakatani
+    # CREATE:   Fri Jan 21 2021
+    # REVISION:
+    #
+    
+    #------------------------------------------------------------
+    # This K2HDKC configuration file(ini) template is registered
+    # in the K2HR3 resource.
+    # As a template, this file is replaced with each variable
+    # according to the environment in the following phases.
+    #
+    # 1) Register K2HR3 resource
+    #    K2HR3_TENANT_NAME         Tenant name which is as same as
+    #                              Namespace on k8s
+    #    K2HDKC_DBAAS_CLUSTER_NAME K2HKDC cluster name
+    #    CHMPX_SSL_SETTING         Setting for following value TLS(SSL)
+    #                              SSL             = on or no
+    #                              SSL_VERIFY_PEER = on or not set
+    #                              SERVER_CERT     = /etc/antpickax/server.crt or not set
+    #                              SERVER_PRIKEY   = /etc/antpickax/server.key or not set
+    #                              SLAVE_CERT      = /etc/antpickax/client.crt or not set
+    #                              SLAVE_PRIKEY    = /etc/antpickax/client.key or not set
+    #
+    # 2) Acquired(downloaded) from the K2HR3 resource
+    #    K2HR3 - Resource
+    #        chmpx-mode
+    #        chmpx-server-port
+    #        chmpx-server-ctlport
+    #        chmpx-slave-ctlport
+    #    K2HR3 - Role
+    #        yrn:yahoo:::<tenant name>:role:<cluster name>/server/hosts/ip
+    #            <ip address>
+    #                host
+    #                cuk
+    #                tag
+    #
+    # 3) Saving this downloaded file to a local disk
+    #    FILE_DOWNLOAD_DATE        File creation date and time
+    #    SELF_CONTAINER_CUK        Own container CUK
+    #
+    #------------------------------------------------------------
+    
+    #
+    # GLOBAL SECTION
+    #
+    [GLOBAL]
+    FILEVERSION     = 1
+    DATE            = %%FILE_DOWNLOAD_DATE%%
+    GROUP           = %%K2HDKC_DBAAS_CLUSTER_NAME%%
+    MODE            = {{= %chmpx-mode% }}
+    CHMPXIDTYPE     = CUSTOM
+    DELIVERMODE     = hash
+    MAXCHMPX        = 256
+    REPLICA         = 1
+    MAXMQSERVER     = 8
+    MAXMQCLIENT     = 128
+    MQPERATTACH     = 8
+    MAXQPERSERVERMQ = 8
+    MAXQPERCLIENTMQ = 8
+    MAXMQPERCLIENT  = 16
+    MAXHISTLOG      = 0
+    {{ if 'SERVER' == %chmpx-mode% }}
+    PORT            = {{= %chmpx-server-port% }}
+    CTLPORT         = {{= %chmpx-server-ctlport% }}
+    SELFCTLPORT     = {{= %chmpx-server-ctlport% }}
+    {{ else }}
+    CTLPORT         = {{= %chmpx-slave-ctlport% }}
+    SELFCTLPORT     = {{= %chmpx-slave-ctlport% }}
+    {{ endif }}
+    SELFCUK         = %%SELF_CONTAINER_CUK%%
+    RWTIMEOUT       = 10000
+    RETRYCNT        = 500
+    CONTIMEOUT      = 1000
+    MQRWTIMEOUT     = 500
+    MQRETRYCNT      = 10000
+    MQACK           = no
+    AUTOMERGE       = on
+    DOMERGE         = on
+    MERGETIMEOUT    = 0
+    SOCKTHREADCNT   = 8
+    MQTHREADCNT     = 8
+    MAXSOCKPOOL     = 16
+    SOCKPOOLTIMEOUT = 0
+    SSL             = no
+    K2HFULLMAP      = on
+    K2HMASKBIT      = 4
+    K2HCMASKBIT     = 8
+    K2HMAXELE       = 16
+    %%CHMPX_SSL_SETTING%%
+    
+    #
+    # SERVER NODES SECTION
+    #
+    {{ foreach %host_key% in %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/server/hosts/ip% }}
+        {{ %one_host% = %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/server/hosts/ip%{%host_key%} }}
+    [SVRNODE]
+    NAME            = {{= %one_host%{'host'} }}
+    CUK             = {{= %one_host%{'cuk'} }}
+    PORT            = {{= %chmpx-server-port% }}
+    CTLPORT         = {{= %chmpx-server-ctlport% }}
+    CUSTOM_ID_SEED  = {{= %one_host%{'tag'} }}
+    {{ done }}
+    
+    #
+    # SLAVE NODES SECTION
+    #
+    {{ if 0 < %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/slave/hosts/ip%.length }}
+        {{ foreach %host_key% in %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/slave/hosts/ip% }}
+            {{ %one_host% = %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/slave/hosts/ip%{%host_key%} }}
+    [SLVNODE]
+    NAME            = {{= %one_host%{'host'} }}
+    CUK             = {{= %one_host%{'cuk'} }}
+    CTLPORT         = {{= %chmpx-slave-ctlport% }}
+    CUSTOM_ID_SEED  = {{= %one_host%{'tag'} }}
+        {{ done }}
+    {{ else }}
+    #
+    # This is output as a dummy slave node when there are no slave nodes.
+    # If the slave node definition does not exist, CHMPX will not start.
+    # To avoid this, register only one localhost as a dummy.
+    #
+    [SLVNODE]
+    NAME            = 127.0.0.1
+    CUK             = dummy_cuk
+    CTLPORT         = {{= %chmpx-slave-ctlport% }}
+    CUSTOM_ID_SEED  = dummy_host
+    {{ endif }}
+    
+    {{ if 'SERVER' == %chmpx-mode% }}
+    #
+    # K2HDKC SECTION
+    #
+    [K2HDKC]
+    K2HTYPE         = file
+    K2HFILE         = /var/lib/antpickax/k2hdkc/k2hdkc.k2h
+    K2HFULLMAP      = on
+    K2HINIT         = no
+    K2HMASKBIT      = 8
+    K2HCMASKBIT     = 8
+    K2HMAXELE       = 32
+    K2HPAGESIZE     = 512
+    MAXTHREAD       = 20
+    {{ endif }}
+    
+    #
+    # Local variables:
+    # tab-width: 4
+    # c-basic-offset: 4
+    # End:
+    # vim600: noexpandtab sw=4 ts=4 fdm=marker
+    # vim<600: noexpandtab sw=4 ts=4
+    #
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: chkpod-dummy
+  annotations:
+    "helm.sh/hook": test-success
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  volumes:
+    - name: antpickax-etc-volume
+      emptyDir:
+        medium: Memory
+    - name: antpickax-var-lib-volume
+      emptyDir:
+        medium: Memory
+    - name: antpickax-var-run-volume
+      emptyDir:
+        medium: Memory
+    - name: configmap-dummy
+      configMap:
+        name: configmap-dummy
+        items:
+          - key: dbaas-k2hdkc-variables-setup.sh
+            path: dbaas-k2hdkc-variables-setup.sh
+          - key: dbaas-k2hdkc-k2hr3-registration.sh
+            path: dbaas-k2hdkc-k2hr3-registration.sh
+          - key: dbaas-k2hdkc-ini-update.sh
+            path: dbaas-k2hdkc-ini-update.sh
+          - key: dbaas-setup-certificate.sh
+            path: dbaas-setup-certificate.sh
+          - key: dbaas-k2hdkc-check.sh
+            path: dbaas-k2hdkc-check.sh
+    - name: secret-k2hr3-ca-dummy_k2hr3
+      secret:
+        secretName: secret-k2hr3-ca-dummy_k2hr3
+    - name: secret-dummy-k2hr3-token
+      secret:
+        secretName: secret-dummy-k2hr3-token
+
+  shareProcessNamespace: true
+
+  initContainers:
+    - name: chkinit-dummy
+      image: alpine:3.13.5
+      env:
+        - name: ANTPICKAX_ETC_DIR
+          value: "/etc/antpickax"
+        - name: K2HR3_API_URL
+          value: "https://svc-r3api-dummy_k2hr3.default.svc.cluster.local:443"
+        - name: K2HR3_TENANT
+          value: "default"
+        - name: K2HDKC_DOMAIN
+          value: "svc.cluster.local"
+        - name: K2HDKC_CLUSTER_NAME
+          value: "dummy"
+        - name: K2HDKC_MODE
+          value: "slave"
+        - name: K2HDKC_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: K2HDKC_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K2HDKC_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K2HDKC_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: K2HDKC_POD_SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: K2HDKC_NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: K2HDKC_POD_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: SEC_CA_MOUNTPOINT
+          value: "/secret-ca"
+        - name: SEC_K2HR3_TOKEN_MOUNTPOINT
+          value: "/secret-k2hr3-token"
+        - name: SEC_UTOKEN_FILENAME
+          value: "unscopedToken"
+        - name: CERT_PERIOD_DAYS
+          value: "1825"
+
+      volumeMounts:
+        - mountPath: /etc/antpickax
+          name: antpickax-etc-volume
+        - mountPath: /configmap
+          name: configmap-dummy
+          readOnly: true
+        - mountPath: /secret-ca
+          name: secret-k2hr3-ca-dummy_k2hr3
+          readOnly: true
+        - mountPath: /secret-k2hr3-token
+          name: secret-dummy-k2hr3-token
+          readOnly: true
+      command: ["/bin/sh"]
+      args: ["/configmap/dbaas-k2hdkc-variables-setup.sh"]
+
+  containers:
+    - name: chkk2hdkc-dummy
+      image: antpickax/k2hdkc:latest
+      env:
+        - name: K2HDKC_CLUSTER_NAME
+          value: "dummy"
+        - name: K2HDKC_SERVER_COUNT
+          value: "2"
+      volumeMounts:
+        - mountPath: /etc/antpickax
+          name: antpickax-etc-volume
+        - mountPath: /var/lib/antpickax
+          name: antpickax-var-lib-volume
+        - mountPath: /var/run/antpickax
+          name: antpickax-var-run-volume
+        - mountPath: /configmap
+          name: configmap-dummy
+          readOnly: true
+      command: ["/bin/sh"]
+      args: ["/configmap/dbaas-k2hdkc-check.sh"]
+      lifecycle:
+        postStart:
+          exec:
+            command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-reg"]
+        preStop:
+          exec:
+            command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
+
+  restartPolicy: Never
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dbaas-dummy-setup-k2hr3
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "0"
+
+spec:
+  ttlSecondsAfterFinished: 30
+  completions: 1
+  parallelism: 1
+  backoffLimit: 0
+  template:
+    spec:
+      volumes:
+        - name: configmap-dummy
+          configMap:
+            name: configmap-dummy
+            items:
+              - key: dbaas-setup-k2hr3-data.sh
+                path: dbaas-setup-k2hr3-data.sh
+              - key: dbaas-k2hdkc.ini.templ
+                path: dbaas-k2hdkc.ini.templ
+        - name: secret-k2hr3-ca-dummy_k2hr3
+          secret:
+            secretName: secret-k2hr3-ca-dummy_k2hr3
+        - name: secret-dummy-k2hr3-token
+          secret:
+            secretName: secret-dummy-k2hr3-token
+
+      containers:
+      - name: setup-k2hr3-dummy-job
+        image: alpine:3.13.5
+        env:
+          - name: ANTPICKAX_ETC_DIR
+            value: "/etc/antpickax"
+          - name: K2HR3_API_URL
+            value: "https://svc-r3api-dummy_k2hr3.default.svc.cluster.local:443"
+          - name: K2HR3_TENANT
+            value: "default"
+          - name: SEC_CA_MOUNTPOINT
+            value: "/secret-ca"
+          - name: SEC_K2HR3_TOKEN_MOUNTPOINT
+            value: "/secret-k2hr3-token"
+          - name: SEC_UTOKEN_FILENAME
+            value: "unscopedToken"
+          - name: K2HDKC_CLUSTER_NAME
+            value: "dummy"
+          - name: K2HDKC_SVR_PORT
+            value: "8020"
+          - name: K2HDKC_SVR_CTLPORT
+            value: "8021"
+          - name: K2HDKC_SLV_CTLPORT
+            value: "8022"
+          - name: K2HDKC_INI_TEMPL_FILE
+            value: "/configmap/dbaas-k2hdkc.ini.templ"
+
+        volumeMounts:
+          - mountPath: /configmap
+            name: configmap-dummy
+            readOnly: true
+          - mountPath: /secret-ca
+            name: secret-k2hr3-ca-dummy_k2hr3
+            readOnly: true
+          - mountPath: /secret-k2hr3-token
+            name: secret-dummy-k2hr3-token
+            readOnly: true
+
+        command: ["/bin/sh"]
+        args: ["/configmap/dbaas-setup-k2hr3-data.sh"]
+      restartPolicy: Never
+  backoffLimit: 4
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dbaas-dummy-unsetup-k2hr3
+  annotations:
+    helm.sh/hook: post-delete
+    helm.sh/hook-delete-policy: hook-succeeded,hook-failed
+    helm.sh/hook-weight: "0"
+
+spec:
+  ttlSecondsAfterFinished: 30
+  completions: 1
+  parallelism: 1
+  backoffLimit: 0
+  template:
+    spec:
+      volumes:
+        - name: configmap-dummy
+          configMap:
+            name: configmap-dummy
+            items:
+              - key: dbaas-unsetup-k2hr3-data.sh
+                path: dbaas-unsetup-k2hr3-data.sh
+        - name: secret-k2hr3-ca-dummy_k2hr3
+          secret:
+            secretName: secret-k2hr3-ca-dummy_k2hr3
+        - name: secret-dummy-k2hr3-token
+          secret:
+            secretName: secret-dummy-k2hr3-token
+
+      containers:
+      - name: unsetup-k2hr3-dummy-job
+        image: alpine:3.13.5
+        env:
+          - name: K2HR3_API_URL
+            value: "https://svc-r3api-dummy_k2hr3.default.svc.cluster.local:443"
+          - name: K2HR3_TENANT
+            value: "default"
+          - name: SEC_CA_MOUNTPOINT
+            value: "/secret-ca"
+          - name: SEC_K2HR3_TOKEN_MOUNTPOINT
+            value: "/secret-k2hr3-token"
+          - name: SEC_UTOKEN_FILENAME
+            value: "unscopedToken"
+          - name: K2HDKC_CLUSTER_NAME
+            value: "dummy"
+
+        volumeMounts:
+          - mountPath: /configmap
+            name: configmap-dummy
+            readOnly: true
+          - mountPath: /secret-ca
+            name: secret-k2hr3-ca-dummy_k2hr3
+            readOnly: true
+          - mountPath: /secret-k2hr3-token
+            name: secret-dummy-k2hr3-token
+            readOnly: true
+
+        command: ["/bin/sh"]
+        args: ["/configmap/dbaas-unsetup-k2hr3-data.sh"]
+      restartPolicy: Never
+  backoffLimit: 0

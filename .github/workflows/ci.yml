@@ -1,0 +1,124 @@
+#
+# K2HDKC DBaaS Helm Chart
+#
+# Utility helper tools for Github Actions by AntPickax
+#
+# Copyright 2022 Yahoo! Japan Corporation.
+#
+# K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+# which is built K2HR3 as a backend and provides services in
+# cooperation with Kubernetes.
+# The Override configuration for K2HDKC DBaaS serves to connect the
+# components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+# and K2HASH are components provided as AntPickax.
+#
+# For the full copyright and license information, please view
+# the license file that was distributed with this source code.
+#
+# AUTHOR:   Takeshi Nakatani
+# CREATE:   Fri Jan 21 2021
+# REVISION:
+#
+
+#----------------------------------------------------------
+# Github Actions
+#----------------------------------------------------------
+name: Helm AntPickax CI
+
+#
+# Events
+#
+on:
+  push:
+  pull_request:
+  #
+  # CRON event is fire on every sunday(UTC).
+  #
+  schedule:
+    - cron: '0 15 * * 0'
+
+#
+# Jobs
+#
+jobs:
+  Helm_Template_Lint:
+    runs-on: ubuntu-latest
+    steps:
+      #
+      # Checks-out your repository under ${GITHUB_WORKSPACE}, so your job can access it
+      #
+      # [NOTE]
+      # When using helm/chart-releaser-action, "fetch-depth: 0" is required.
+      #
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: "0"
+
+      #
+      # Install latest Helm version
+      #
+      - uses: azure/setup-helm@v1
+        id: install
+
+      #
+      # Check scripts by shellcheck
+      #
+      - name: ShellCheck
+        run: |
+          LC_ALL=C.UTF-8 shellcheck --shell=sh --exclude=SC1091,SC2181 $(grep '^#!/bin/sh' $(find . -type f -name \*.sh) | sed -e 's|^\(.*\):#\!.*$|\1|g')
+
+      #
+      # Check by helm template
+      #
+      - name: Helm template
+        run: |
+          REPONAME=$(echo "${GITHUB_REPOSITORY}" | sed -e 's#^.*/##g')
+          cd "${GITHUB_WORKSPACE}"/..
+          helm template dummy "${REPONAME}" --set k2hr3.unscopedToken=dummy_token --set k2hr3.clusterName=dummy_k2hr3 | sed -e 's/^# Source:.*$//g' > /tmp/test_template.result
+          diff /tmp/test_template.result "${GITHUB_WORKSPACE}"/.github/workflows/helm_template.result
+
+      #
+      # Check by helm lint
+      #
+      - name: Helm lint
+        run: |
+          REPONAME=$(echo "${GITHUB_REPOSITORY}" | sed -e 's#^.*/##g')
+          cd "${GITHUB_WORKSPACE}"/..
+          helm lint "${REPONAME}" --set k2hr3.unscopedToken=dummy_token --set k2hr3.clusterName=dummy_k2hr3 | tail -1 > /tmp/test_lint.result
+          diff /tmp/test_lint.result "${GITHUB_WORKSPACE}"/.github/workflows/helm_lint.result
+
+      #
+      # Set git config
+      #
+      - name: Configure Git
+        run: |
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+
+      #
+      # Release Helm Chart
+      #
+      # [NOTE]
+      # Release tags, asset files, and index.yaml in gh-pages will not be
+      # updated or created in repositories other than the "yahoojapan"
+      # organization.
+      # It means that forked repositories do not run these processes.
+      # But, you can force to execute these by setting
+      # "FORCE_PKG_ORG=<your organization name>" to Secret.
+      #
+      - name: Check/Publish Helm Chart package
+        env:
+          GH_TOKEN:        "${{ secrets.GITHUB_TOKEN }}"
+          RUN_TAGGING_ORG: "${{ secrets.RUN_TAGGING_ORG }}"
+        run: |
+          /bin/sh -c "${GITHUB_WORKSPACE}/.github/workflows/helm_packager.sh ${GITHUB_WORKSPACE}/Chart.yaml ${GITHUB_WORKSPACE}/CHANGELOG.md"
+
+#
+# Local variables:
+# tab-width: 4
+# c-basic-offset: 4
+# End:
+# vim600: expandtab sw=4 ts=4 fdm=marker
+# vim<600: expandtab sw=4 ts=4
+#

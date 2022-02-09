@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Values",
+  "description": "Values for K2HDKC DBaaS Helm",
+  "type": "object",
+
+  "properties": {
+    "nameOverride": {
+      "description": "[optional] Override release part of fully name, if not specified fullnameOverride value.",
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "description": "[optional] Override fully chart/release name",
+      "type": "string"
+    },
+
+    "serviceAccount": {
+      "description": "[optional] Service account setting.",
+      "type": "object",
+      "properties": {
+        "create": {
+          "description": "[optional] Specifies whether to create a service account, default is true.",
+          "type": "boolean"
+        },
+        "annotations": {
+          "description": "[optional] Annotations to add to the service account, default is empty.",
+          "type": "object"
+        },
+        "name": {
+          "description": "[optional] Specifies Service account name, default is empty. If not set and create is true, a name is generated using the fullname template.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "create",
+        "annotations",
+        "name"
+      ]
+    },
+
+    "antpickax": {
+      "description": "[optional] Common application settings for AntPickax products.",
+      "type": "object",
+      "properties": {
+        "configDir": {
+          "description": "[optional] Configration directory path for AntPickax products, default is /etc/antpickax.",
+          "type": "string"
+        },
+        "certPeriodYear": {
+          "description": "[optional] Period years for self signed certificates using in pods, default is 5(year).",
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "configDir",
+        "certPeriodYear"
+      ]
+    },
+
+    "dbaas": {
+      "description": "[optional] K2HDKC cluster settings.",
+      "type": "object",
+      "properties": {
+        "clusterName": {
+          "description": "[optional] Specify a cluster name for K2HDKC, default is empty. If not set, a name is Release name(.Release.Name).",
+          "type": "string"
+        },
+        "baseDomain": {
+          "description": "[optional] Specifies the base domain name for the k2hr3 cluster. The default is empty, if empty k8s.domain is used.",
+          "type": "string"
+        },
+
+        "server": {
+          "description": "[optional] The setting for the servers of the K2HDKC cluster.",
+          "type": "object",
+          "properties": {
+            "count": {
+              "description": "[optional] Specify the server count in K2HKDC cluster, default is 2.",
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "port": {
+              "description": "[optional] Specify the port number for K2HDKC servers, default is 8020.",
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "ctlport": {
+              "description": "[optional] Specify the control port number for K2HDKC servers, default is 8021.",
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "count",
+            "port",
+            "ctlport"
+          ]
+        },
+
+        "slave": {
+          "description": "[optional] The setting for the slaves of the K2HDKC cluster.",
+          "type": "object",
+          "properties": {
+            "count": {
+              "description": "[optional] Specify the slave count in K2HKDC cluster, default is 2.",
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "ctlport": {
+              "description": "[optional] Specify the control port number for K2HDKC slaves, default is 8022.",
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "image": {
+              "description": "[optional] Specifies the docker image for k2hdkc slave container. If empty, antpickax/k2hdkc:latest is set as default.",
+              "type": "string"
+            },
+            "command": {
+              "description": "[optional] Specifies the command for k2hdkc slave container. If empty, /bin/sh is set as default.",
+              "type": "array"
+            },
+            "args": {
+              "description": "[optional] Specifies the args for k2hdkc slave container. If empty, dbaas-k2hdkc-dummyslave.sh is set as default.",
+              "type": "array"
+            },
+            "files": {
+              "description": "[optional] Specifies additional files in configmap. The files must be under chart directory, if not, could not load file contents.",
+              "type": "array"
+            },
+            "expandFiles": {
+              "description": "[optional] Specifies additional files and its contents(string) in configmap. Each value must have key and content subkey.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "description": "[required] Specify the filename.",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "contents": {
+                    "description": "[required] Specify the file contents(string) to upload.",
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "key",
+                  "contents"
+                ]
+              }
+            }
+          },
+          "required": [
+            "count",
+            "ctlport"
+          ]
+        }
+      },
+      "required": [
+        "clusterName",
+        "baseDomain",
+        "server",
+        "slave"
+      ]
+    },
+
+    "k2hr3": {
+      "description": "[optional] Settings for the K2HR3 system used by the K2HDKC cluster.",
+      "type": "object",
+      "properties": {
+        "clusterName": {
+          "description": "[optional] Specify a cluster name for K2HR3 system, default is empty. If not set, a name is k2hr3.",
+          "type": "string"
+        },
+        "baseDomain": {
+          "description": "[optional] Specifies the base domain name for the K2HR3 system, default is empty. If not set, it is set the domain name for K2HDKC cluster.",
+          "type": "string"
+        },
+        "unscopedToken": {
+          "description": "[required] Specifies the Unscoped Token for K2HR3 system, this token is used for setting information for K2HDKC cluster.",
+          "type": "string",
+          "minLength": 1
+        },
+
+        "api": {
+          "description": "[optional] The setting for the K2HR3 REST API in K2HR3 system.",
+          "type": "object",
+          "properties": {
+            "baseName": {
+              "description": "[optional] Specify the base name for K2HR3 REST API, default is empty in which case r3api will be used.",
+              "type": "string"
+            },
+            "intPort": {
+              "description": "[optional] Specify the internal port number for K2HR3 REST API slaves, default is 443.",
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "baseName",
+            "intPort"
+          ]
+        }
+      },
+      "required": [
+        "clusterName",
+        "baseDomain",
+        "unscopedToken",
+        "api"
+      ]
+    },
+
+    "mountPoint": {
+      "description": "[optional] Specify the directory path in each pods to mount the configmap and secret.",
+      "type": "object",
+      "properties": {
+        "configMap": {
+          "description": "[optional] Specify the directory path in each pods to mount the configmap, default is /configmap.",
+          "type": "string"
+        },
+        "ca": {
+          "description": "[optional] Specify the directory path in each pods to mount the secret which has CA self signed certificates, default is /secret-ca.",
+          "type": "string"
+        },
+        "k2hr3Token": {
+          "description": "[optional] Specify the directory path in each pods to mount the K2HR3 Unscoped Token file, default is /secret-k2hr3-token.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "configMap",
+        "ca",
+        "k2hr3Token"
+      ]
+    },
+
+    "k8s": {
+      "description": "[optional] Set the information for the kubernetes cluster in which will be deployed the K2HDKC cluster.",
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "description": "[optional] Specify the kubernetes namespace to deploy K2HDKC cluster, default is empty. If not set, use Release.Namespace.",
+          "type": "string"
+        },
+        "domain": {
+          "description": "[optional] Specify the domain name of the kubernetes cluster to deploy K2HDKC cluster, default is svc.cluster.local.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "domain"
+      ]
+    },
+
+    "unconvertedFiles": {
+      "description": "[optional] Specify the files(unconverted) to be placed in configmap.",
+      "type": "object",
+      "properties": {
+        "dbaas": {
+          "description": "[optional] Specify an array of files(unconverted) for K2HDKC cluster.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "description": "[required] Specify the filename.",
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "description": "[required] Specify the path of the file to upload.",
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "key",
+              "path"
+            ]
+          }
+        }
+      },
+      "required": [
+        "dbaas"
+      ]
+    }
+  },
+  "required": [
+    "antpickax",
+    "dbaas",
+    "k2hr3",
+    "mountPoint",
+    "k8s",
+    "unconvertedFiles"
+  ]
+}

@@ -1,0 +1,168 @@
+{{#!k2hr3template }}
+#
+# K2HDKC DBaaS Helm Chart
+#
+# Copyright 2022 Yahoo! Japan Corporation.
+#
+# K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+# which is built K2HR3 as a backend and provides services in
+# cooperation with Kubernetes.
+# The Override configuration for K2HDKC DBaaS serves to connect the
+# components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+# and K2HASH are components provided as AntPickax.
+#
+# For the full copyright and license information, please view
+# the license file that was distributed with this source code.
+#
+# AUTHOR:   Takeshi Nakatani
+# CREATE:   Fri Jan 21 2021
+# REVISION:
+#
+
+#------------------------------------------------------------
+# This K2HDKC configuration file(ini) template is registered
+# in the K2HR3 resource.
+# As a template, this file is replaced with each variable
+# according to the environment in the following phases.
+#
+# 1) Register K2HR3 resource
+#    K2HR3_TENANT_NAME         Tenant name which is as same as
+#                              Namespace on k8s
+#    K2HDKC_DBAAS_CLUSTER_NAME K2HKDC cluster name
+#    CHMPX_SSL_SETTING         Setting for following value TLS(SSL)
+#                              SSL             = on or no
+#                              SSL_VERIFY_PEER = on or not set
+#                              SERVER_CERT     = /etc/antpickax/server.crt or not set
+#                              SERVER_PRIKEY   = /etc/antpickax/server.key or not set
+#                              SLAVE_CERT      = /etc/antpickax/client.crt or not set
+#                              SLAVE_PRIKEY    = /etc/antpickax/client.key or not set
+#
+# 2) Acquired(downloaded) from the K2HR3 resource
+#    K2HR3 - Resource
+#        chmpx-mode
+#        chmpx-server-port
+#        chmpx-server-ctlport
+#        chmpx-slave-ctlport
+#    K2HR3 - Role
+#        yrn:yahoo:::<tenant name>:role:<cluster name>/server/hosts/ip
+#            <ip address>
+#                host
+#                cuk
+#                tag
+#
+# 3) Saving this downloaded file to a local disk
+#    FILE_DOWNLOAD_DATE        File creation date and time
+#    SELF_CONTAINER_CUK        Own container CUK
+#
+#------------------------------------------------------------
+
+#
+# GLOBAL SECTION
+#
+[GLOBAL]
+FILEVERSION     = 1
+DATE            = %%FILE_DOWNLOAD_DATE%%
+GROUP           = %%K2HDKC_DBAAS_CLUSTER_NAME%%
+MODE            = {{= %chmpx-mode% }}
+CHMPXIDTYPE     = CUSTOM
+DELIVERMODE     = hash
+MAXCHMPX        = 256
+REPLICA         = 1
+MAXMQSERVER     = 8
+MAXMQCLIENT     = 128
+MQPERATTACH     = 8
+MAXQPERSERVERMQ = 8
+MAXQPERCLIENTMQ = 8
+MAXMQPERCLIENT  = 16
+MAXHISTLOG      = 0
+{{ if 'SERVER' == %chmpx-mode% }}
+PORT            = {{= %chmpx-server-port% }}
+CTLPORT         = {{= %chmpx-server-ctlport% }}
+SELFCTLPORT     = {{= %chmpx-server-ctlport% }}
+{{ else }}
+CTLPORT         = {{= %chmpx-slave-ctlport% }}
+SELFCTLPORT     = {{= %chmpx-slave-ctlport% }}
+{{ endif }}
+SELFCUK         = %%SELF_CONTAINER_CUK%%
+RWTIMEOUT       = 10000
+RETRYCNT        = 500
+CONTIMEOUT      = 1000
+MQRWTIMEOUT     = 500
+MQRETRYCNT      = 10000
+MQACK           = no
+AUTOMERGE       = on
+DOMERGE         = on
+MERGETIMEOUT    = 0
+SOCKTHREADCNT   = 8
+MQTHREADCNT     = 8
+MAXSOCKPOOL     = 16
+SOCKPOOLTIMEOUT = 0
+SSL             = no
+K2HFULLMAP      = on
+K2HMASKBIT      = 4
+K2HCMASKBIT     = 8
+K2HMAXELE       = 16
+%%CHMPX_SSL_SETTING%%
+
+#
+# SERVER NODES SECTION
+#
+{{ foreach %host_key% in %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/server/hosts/ip% }}
+    {{ %one_host% = %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/server/hosts/ip%{%host_key%} }}
+[SVRNODE]
+NAME            = {{= %one_host%{'host'} }}
+CUK             = {{= %one_host%{'cuk'} }}
+PORT            = {{= %chmpx-server-port% }}
+CTLPORT         = {{= %chmpx-server-ctlport% }}
+CUSTOM_ID_SEED  = {{= %one_host%{'tag'} }}
+{{ done }}
+
+#
+# SLAVE NODES SECTION
+#
+{{ if 0 < %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/slave/hosts/ip%.length }}
+    {{ foreach %host_key% in %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/slave/hosts/ip% }}
+        {{ %one_host% = %yrn:yahoo:::%%K2HR3_TENANT_NAME%%:role:%%K2HDKC_DBAAS_CLUSTER_NAME%%/slave/hosts/ip%{%host_key%} }}
+[SLVNODE]
+NAME            = {{= %one_host%{'host'} }}
+CUK             = {{= %one_host%{'cuk'} }}
+CTLPORT         = {{= %chmpx-slave-ctlport% }}
+CUSTOM_ID_SEED  = {{= %one_host%{'tag'} }}
+    {{ done }}
+{{ else }}
+#
+# This is output as a dummy slave node when there are no slave nodes.
+# If the slave node definition does not exist, CHMPX will not start.
+# To avoid this, register only one localhost as a dummy.
+#
+[SLVNODE]
+NAME            = 127.0.0.1
+CUK             = dummy_cuk
+CTLPORT         = {{= %chmpx-slave-ctlport% }}
+CUSTOM_ID_SEED  = dummy_host
+{{ endif }}
+
+{{ if 'SERVER' == %chmpx-mode% }}
+#
+# K2HDKC SECTION
+#
+[K2HDKC]
+K2HTYPE         = file
+K2HFILE         = /var/lib/antpickax/k2hdkc/k2hdkc.k2h
+K2HFULLMAP      = on
+K2HINIT         = no
+K2HMASKBIT      = 8
+K2HCMASKBIT     = 8
+K2HMAXELE       = 32
+K2HPAGESIZE     = 512
+MAXTHREAD       = 20
+{{ endif }}
+
+#
+# Local variables:
+# tab-width: 4
+# c-basic-offset: 4
+# End:
+# vim600: noexpandtab sw=4 ts=4 fdm=marker
+# vim<600: noexpandtab sw=4 ts=4
+#
