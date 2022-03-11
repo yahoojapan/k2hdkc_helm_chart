@@ -23,7 +23,7 @@ name: k2hdkc
 description: |-
    K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster) Database as a Service on Kubernetes
 type: application
-appVersion: "1.0.0"
+appVersion: "1.0.1"
 kubeVersion: ">=v1.20"
 maintainers:
   - name: "Takeshi Nakatani"
@@ -50,7 +50,7 @@ keywords:
 home: https://dbaas.k2hdkc.antpick.ax/
 icon: https://antpick.ax/images/antpickax_circle_512x512.png
 deprecated: false
-version: 1.0.0
+version: 1.0.1
 annotations:
   catalog.cattle.io/display-name: "K2HDKC - Database as a Service"
   artifacthub.io/changes: |
