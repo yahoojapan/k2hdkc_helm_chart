@@ -3,13 +3,53 @@ entries:
   k2hdkc:
   - annotations:
       artifacthub.io/changes: |
+        - Supported RANCHER as RANCHER Helm Chart
+      catalog.cattle.io/display-name: K2HDKC - Database as a Service
+    apiVersion: v2
+    appVersion: 1.0.1
+    created: "2022-03-11T07:18:58.443822067Z"
+    description: K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster)
+      Database as a Service on Kubernetes
+    digest: 073bb36f75cdf2a259edd0e01959c6dc5762f4c862ccf00aec109932feceb543
+    home: https://dbaas.k2hdkc.antpick.ax/
+    icon: https://antpick.ax/images/antpickax_circle_512x512.png
+    keywords:
+    - K2HDKC
+    - NOSQL
+    - KVS
+    - DBaaS
+    - Distributes
+    - Database
+    - Queue
+    - AntPickax
+    - Helm
+    - kubernetes
+    - K2HR3
+    - K2HASH
+    - CHMPX
+    - In-memory
+    kubeVersion: '>=v1.20'
+    maintainers:
+    - email: ggtakec@gmail.com
+      name: Takeshi Nakatani
+    - email: hiwakaba@yahoo-corp.jp
+      name: Hirotaka Wakabayashi
+    name: k2hdkc
+    sources:
+    - https://github.com/yahoojapan/k2hdkc_helm_chart
+    type: application
+    urls:
+    - https://github.com/yahoojapan/k2hdkc_helm_chart/releases/download/v1.0.1/k2hdkc-1.0.1.tgz
+    version: 1.0.1
+  - annotations:
+      artifacthub.io/changes: |
         - Initial Commit and publishing
     apiVersion: v2
     appVersion: 1.0.0
-    created: "2022-02-09T06:51:59.776330926Z"
+    created: "2022-03-11T07:18:58.442047967Z"
     description: K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster)
       Database as a Service on Kubernetes
-    digest: 6e91363a180db84a5d36d6c12ccf9de83d29fec5ce7607e595fbe9168325fbc6
+    digest: 4f1e018c020322552463933bae440ac5c4cfafca261701b3ed1a8f59ba4d4578
     home: https://dbaas.k2hdkc.antpick.ax/
     icon: https://antpick.ax/images/antpickax_circle_512x512.png
     keywords:
@@ -40,4 +80,4 @@ entries:
     urls:
     - https://github.com/yahoojapan/k2hdkc_helm_chart/releases/download/v1.0.0/k2hdkc-1.0.0.tgz
     version: 1.0.0
-generated: "2022-02-09T06:51:59.77286176Z"
+generated: "2022-03-11T07:18:58.439164967Z"
