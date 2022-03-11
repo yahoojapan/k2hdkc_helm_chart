@@ -31,7 +31,7 @@ The following options/values are supported. See values.yaml for more detailed do
 | `dbaas.server.ctlport`               | optional     | Specify the control port number for K2HDKC servers.                                                                                 | 8021    |
 | `dbaas.slave.count`                  | optional     | Specify the slave count in K2HKDC cluster.                                                                                          | 2       |
 | `dbaas.slave.ctlport`                | optional     | Specify the control port number for K2HDKC slaves                                                                                   | 8022    |
-| `dbaas.slave.image`                  | optional     | Specifies the docker image for k2hdkc slave container. If empty, antpickax/k2hdkc:latest is set as default.                         | ""      |
+| `dbaas.slave.image`                  | optional     | Specifies the docker image for k2hdkc slave container. If empty, antpickax/k2hdkc:1.0.3 is set as default.                          | ""      |
 | `dbaas.slave.command`                | optional     | Specifies the command for k2hdkc slave container. If empty, /bin/sh is set as default.                                              | []      |
 | `dbaas.slave.args`                   | optional     | Specifies the args for k2hdkc slave container. If empty, dbaas-k2hdkc-dummyslave.sh is set as default.                              | []      |
 | `dbaas.slave.files`                  | optional     | Specifies additional files in configmap. The files must be under chart directory, if not, could not load file contents.             | []      |
