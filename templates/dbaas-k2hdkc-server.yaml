@@ -225,7 +225,7 @@ spec:
                 command: ["/bin/sh", "{{ .Values.mountPoint.configMap }}/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: svrchmpx-{{ include "k2hdkc.clusterName" . }}
-          image: antpickax/chmpx:latest
+          image: {{ include "images.chmpxOrg" . }}/chmpx:{{ include "images.chmpxVer" . }}
           volumeMounts:
             - mountPath: {{ .Values.antpickax.configDir }}
               name: antpickax-etc-volume
@@ -240,7 +240,7 @@ spec:
           args: ["{{ .Values.mountPoint.configMap }}/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: svrk2hdkc-{{ include "k2hdkc.clusterName" . }}
-          image: antpickax/k2hdkc:latest
+          image: {{ include "images.k2hdkcOrg" . }}/k2hdkc:{{ include "images.k2hdkcVer" . }}
           volumeMounts:
             - mountPath: {{ .Values.antpickax.configDir }}
               name: antpickax-etc-volume

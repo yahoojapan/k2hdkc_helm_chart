@@ -133,7 +133,7 @@ spec:
 
   containers:
     - name: chkk2hdkc-{{ include "k2hdkc.clusterName" . }}
-      image: antpickax/k2hdkc:latest
+      image: {{ include "images.k2hdkcOrg" . }}/k2hdkc:{{ include "images.k2hdkcVer" . }}
       env:
         - name: K2HDKC_CLUSTER_NAME
           value: "{{ include "k2hdkc.clusterName" . }}"

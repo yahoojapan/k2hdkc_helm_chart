@@ -1,0 +1,189 @@
+#!/bin/sh
+#
+# K2HDKC DBaaS Helm Chart
+#
+# Utility helper tools for Github Actions by AntPickax
+#
+# Copyright 2022 Yahoo! Japan Corporation.
+#
+# K2HDKC DBaaS is a DataBase as a Service provided by Yahoo! JAPAN
+# which is built K2HR3 as a backend and provides services in
+# cooperation with Kubernetes.
+# The Override configuration for K2HDKC DBaaS serves to connect the
+# components that make up the K2HDKC DBaaS. K2HDKC, K2HR3, CHMPX,
+# and K2HASH are components provided as AntPickax.
+#
+# For the full copyright and license information, please view
+# the license file that was distributed with this source code.
+#
+# AUTHOR:   Takeshi Nakatani
+# CREATE:   Tue Mar 9 2022
+# REVISION:
+#
+
+#
+# questinos.yaml for RANCHER
+#
+categories:
+- Database
+- KVS
+
+questions:
+
+#
+# K2HR3 System to use
+#
+- variable: k2hr3.clusterName
+  default: ""
+  label: "Cluster(install) name of K2HR3 system"
+  description: "Specify a cluster name for K2HR3 system which is used for setup K2HDKC cluster, you need to install K2HR3 system before installing this chart."
+  type: string
+  required: true
+  group: "K2HR3 System to use"
+  min_length: 0
+  max_length: 255
+
+- variable: k2hr3.unscopedToken
+  default: ""
+  label: "Unscoped Token for K2HR3 system"
+  description: "Specify the Unscoped Token for K2HR3 system which is used for setup K2HDKC cluster, you can get this value from your K2HR3 Web Application UI."
+  type: string
+  required: true
+  group: "K2HR3 System to use"
+  min_length: 0
+  max_length: 1023
+
+#
+# K2HDKC Server
+#
+- variable: dbaas.server.count
+  default: 2
+  label: "K2HDKC Server Count"
+  description: "Specify the server count in K2HKDC cluster, default is \"2\"."
+  type: int
+  required: false
+  group: "K2HDKC Server"
+  min: 2
+  max: 64
+
+- variable: dbaas.server.port
+  default: 8020
+  label: "K2HDKC Server Port"
+  description: "Specify the port number for K2HDKC servers, default is \"8020\"."
+  type: int
+  required: false
+  group: "K2HDKC Server"
+  min: 1024
+  max: 49151
+
+- variable: dbaas.server.ctlport
+  default: 8021
+  label: "K2HDKC Server Control Port"
+  description: "Specify the control port number for K2HDKC servers, default is \"8021\"."
+  type: int
+  required: false
+  group: "K2HDKC Server"
+  min: 1024
+  max: 49151
+
+- variable: images.dkc.organization
+  default: ""
+  label: "Image Organaization name for K2HDKC"
+  description: "Specify the organaization for the K2HDKC image, default is empty string in which case \"antpickax\" will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 63
+
+- variable: images.dkc.version
+  default: ""
+  label: "Image version for K2HDKC"
+  description: "Specify the version for K2HDKC image, default is empty string in which case one of version number will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 31
+
+- variable: images.chmpx.organization
+  default: ""
+  label: "Image Organaization name for CHMPX"
+  description: "Specify the organaization for CHMPX image, default is empty string in which case \"antpickax\" will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 63
+
+- variable: images.chmpx.version
+  default: ""
+  label: "Image version for CHMPX"
+  description: "Specify the version for CHMPX image, default is empty string in which case one of version number will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 31
+
+#
+# K2HDKC Client
+#
+- variable: dbaas.slave.count
+  default: 2
+  label: "K2HDKC Client(Slave) Count"
+  description: "Specify the client(slave) count in K2HKDC cluster, default is \"2\"."
+  type: int
+  required: false
+  group: "K2HDKC Client"
+  min: 2
+  max: 64
+
+- variable: dbaas.slave.ctlport
+  default: 8022
+  label: "K2HDKC Slave Control Port"
+  description: "Specify the control port number for K2HDKC slaves, default is \"8022\"."
+  type: int
+  required: false
+  group: "K2HDKC Client"
+  min: 1024
+  max: 49151
+
+- variable: dbaas.slave.image
+  default: ""
+  label: "Image for K2HDKC Client(Slave)"
+  description: "Specifies the custom image for K2HDKC client(slave) container. Prepare an image that contains the program you want to run as a K2HDKC client and specify it to this value. This custom image run on a container for the K2HDKC client(slave), so you must specify an image that contains CHMPX. If empty string, \"antpickax/k2hdkc:1.0.3\" is set as default."
+  type: string
+  required: false
+  group: "K2HDKC Client"
+  min_length: 0
+  max_length: 63
+
+- variable: dbaas.slave.command
+  default: ""
+  label: "Command for K2HDKC Client"
+  description: "Specifies the command for K2HDKC client. This value is passed as a command option in the kubernetes container. If empty string, \"/bin/sh\" is set as default. (Normally, \"command\"/\"args\"/\"files\"/\"expandFiles\" can be specified as an array, so if it gets complicated, it is recommended to edit YAML directly.)"
+  type: string
+  required: false
+  group: "K2HDKC Client"
+  min_length: 0
+  max_length: 2047
+
+- variable: dbaas.slave.args
+  default: ""
+  label: "Args for K2HDKC Client"
+  description: "Specifies the args for K2HDKC client. This value is passed as an args option in the kubernetes container. If empty string, \"dbaas-k2hdkc-dummyslave.sh\" is set as default. (Normally, \"command\"/\"args\"/\"files\"/\"expandFiles\" can be specified as an array, so if it gets complicated, it is recommended to edit YAML directly.)"
+  type: string
+  required: false
+  group: "K2HDKC Client"
+  min_length: 0
+  max_length: 2047
+
+#
+# Local variables:
+# tab-width: 4
+# c-basic-offset: 4
+# End:
+# vim600: expandtab sw=4 ts=4 fdm=marker
+# vim<600: expandtab sw=4 ts=4
+#

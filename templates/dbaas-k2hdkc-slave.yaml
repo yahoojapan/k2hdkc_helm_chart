@@ -232,7 +232,7 @@ spec:
                 command: ["/bin/sh", "{{ .Values.mountPoint.configMap }}/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: slvchmpx-{{ include "k2hdkc.clusterName" . }}
-          image: antpickax/chmpx:latest
+          image: {{ include "images.chmpxOrg" . }}/chmpx:{{ include "images.chmpxVer" . }}
           volumeMounts:
             - mountPath: {{ .Values.antpickax.configDir }}
               name: antpickax-etc-volume
