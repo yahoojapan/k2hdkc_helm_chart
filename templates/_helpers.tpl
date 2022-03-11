@@ -179,11 +179,36 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{-
 /*---------------------------------------------------------
+* Set organization and version fo images
+*
+*/}}
+{{- define "images.k2hdkcOrg" -}}
+{{- default "antpickax" .Values.images.dkc.organization }}
+{{- end }}
+{{- define "images.k2hdkcVer" -}}
+{{- default "1.0.3" .Values.images.dkc.version }}
+{{- end }}
+
+{{- define "images.chmpxOrg" -}}
+{{- default "antpickax" .Values.images.chmpx.organization }}
+{{- end }}
+{{- define "images.chmpxVer" -}}
+{{- default "1.0.96" .Values.images.chmpx.version }}
+{{- end }}
+
+{{-
+/*---------------------------------------------------------
 * K2HDKC Slave cntainer - image/command/args
 *
 */}}
 {{- define "k2hdkc.slaveImage" -}}
-{{- default "antpickax/k2hdkc:latest" .Values.dbaas.slave.image }}
+{{- if .Values.dbaas.slave.image }}
+{{- .Values.dbaas.slave.image }}
+{{- else -}}
+{{- $tmporg := (include "images.k2hdkcOrg" .) }}
+{{- $tmpver := (include "images.k2hdkcVer" .) }}
+{{- printf "%s/k2hdkc:%s" $tmporg $tmpver }}
+{{- end }}
 {{- end }}
 
 {{- define "k2hdkc.slaveCommand" -}}

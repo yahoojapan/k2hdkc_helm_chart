@@ -146,6 +146,21 @@ mountPoint:
   k2hr3Token: /secret-k2hr3-token
 
 #---------------------------------------------------------
+# Images
+#
+#	dkc/chmpx			image type(k2hdkc/chmpx)
+#		organization	Specify organaization name for images(default is "antpickax")
+#		version			Specify image version(default is set automatically)
+#
+images:
+  dkc:
+    organization: ""
+    version: ""
+  chmpx:
+    organization: ""
+    version: ""
+
+#---------------------------------------------------------
 # Kubernetes
 #
 #	namespace		Specifies the namespace to start k2hdkc dbaas.

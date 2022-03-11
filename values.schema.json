@@ -113,7 +113,7 @@
               "exclusiveMinimum": 0
             },
             "image": {
-              "description": "[optional] Specifies the docker image for k2hdkc slave container. If empty, antpickax/k2hdkc:latest is set as default.",
+              "description": "[optional] Specifies the docker image for k2hdkc slave container. If empty, antpickax/k2hdkc:1.0.3 is set as default.",
               "type": "string"
             },
             "command": {
@@ -209,6 +209,54 @@
         "baseDomain",
         "unscopedToken",
         "api"
+      ]
+    },
+
+    "images": {
+      "description": "[optional] Specify the organization and version of the image used by the pods deployed.",
+      "type": "object",
+      "properties": {
+        "dkc": {
+          "description": "[optional] Specify the K2HDKC image organization and version.",
+          "type": "object",
+          "properties": {
+            "organization": {
+              "description": "[optional] Specify the organaization for the K2HDKC image, default is empty in which case antpickax will be used.",
+              "type": "string"
+            },
+            "version": {
+              "description": "[optional] Specify the version for the K2HDKC image, default is empty in which case one of version number will be used.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization",
+            "version"
+          ]
+        },
+
+        "chmpx": {
+          "description": "[optional] Specify the CHMPX image organization and version.",
+          "type": "object",
+          "properties": {
+            "organization": {
+              "description": "[optional] Specify the organaization for the CHMPX image, default is empty in which case antpickax will be used.",
+              "type": "string"
+            },
+            "version": {
+              "description": "[optional] Specify the version for the CHMPX image, default is empty in which case one of version number will be used.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "organization",
+            "version"
+          ]
+        }
+      },
+      "required": [
+        "dkc",
+        "chmpx"
       ]
     },
 

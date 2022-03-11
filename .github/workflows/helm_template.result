@@ -175,7 +175,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: svrchmpx-dummy
-          image: antpickax/chmpx:latest
+          image: antpickax/chmpx:1.0.96
           volumeMounts:
             - mountPath: /etc/antpickax
               name: antpickax-etc-volume
@@ -190,7 +190,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: svrk2hdkc-dummy
-          image: antpickax/k2hdkc:latest
+          image: antpickax/k2hdkc:1.0.3
           volumeMounts:
             - mountPath: /etc/antpickax
               name: antpickax-etc-volume
@@ -344,7 +344,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: slvchmpx-dummy
-          image: antpickax/chmpx:latest
+          image: antpickax/chmpx:1.0.96
           volumeMounts:
             - mountPath: /etc/antpickax
               name: antpickax-etc-volume
@@ -359,7 +359,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: slvk2hdkc-dummy
-          image: antpickax/k2hdkc:latest
+          image: antpickax/k2hdkc:1.0.3
           volumeMounts:
             - mountPath: /etc/antpickax
               name: antpickax-etc-volume
@@ -3446,7 +3446,7 @@ spec:
 
   containers:
     - name: chkk2hdkc-dummy
-      image: antpickax/k2hdkc:latest
+      image: antpickax/k2hdkc:1.0.3
       env:
         - name: K2HDKC_CLUSTER_NAME
           value: "dummy"

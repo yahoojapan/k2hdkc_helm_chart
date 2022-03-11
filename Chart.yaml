@@ -52,6 +52,7 @@ icon: https://antpick.ax/images/antpickax_circle_512x512.png
 deprecated: false
 version: 1.0.0
 annotations:
+  catalog.cattle.io/display-name: "K2HDKC - Database as a Service"
   artifacthub.io/changes: |
     - FROM_CHANGELOGMD_CONTENT
 
