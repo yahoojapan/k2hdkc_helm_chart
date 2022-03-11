@@ -2,7 +2,9 @@
 This repository defines a **Helm Chart** for deploying [K2HDKC](https://k2hdkc.antpick.ax/index.html) cluster as DBaaS (Database as a Service) on Kubernetes cluster.  
 The code in this repository is packaged as Helm Chart and distributed from [Artifact Hub](https://artifacthub.io/packages/helm/k2hdkc/k2hdkc).  
 
-![K2HDKC DBaaS](https://dbaas.k2hdkc.antpick.ax/images/top_k2hdkc_dbaas.png)
+You can download the Helm Chart for K2HDKC from Artifact Hub and use it right away.
+
+![K2HDKC DBaaS](https://dbaas.k2hdkc.antpick.ax/images/top_k2hdkc_helm.png){: width="60%" height="60%"}
 
 ## About K2HKDC
 K2HDKC (K2Hash based Distributed Kvs Cluster) is a distributed KVS(Key Value Store) clustering system.  
@@ -79,6 +81,11 @@ $ helm uninstall <release name>
 ### Other operation
 Other operations can be performed using the Helm command.  
 See `helm --help` for more information.
+
+## Use with RANCHER
+K2HDKC Helm Chart can be used by registering the repository in [RANCHER](https://rancher.com/).  
+[RANCHER](https://rancher.com/) allows you to use K2HDKC Helm Chart with more intuitive and simpler operations than using the `helm` command.  
+See the [K2HDKC Helm Chart documentation](https://github.com/yahoojapan/k2hdkc_helm_chart) for more details.  
 
 ## Documents
 [K2HDKC DBaaS Document](https://dbaas.k2hdkc.antpick.ax/index.html)  
