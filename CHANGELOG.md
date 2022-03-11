@@ -47,8 +47,13 @@ file ready.
 -->
 # Change Log for K2HDKC Helm Chart
 
+## [1.0.1] - 2022-03-11
+### Changed
+- Supported RANCHER as RANCHER Helm Chart
+
 ## [1.0.0] - 2022-02-09
 ### Changed
 - Initial Commit and publishing
 
+[1.0.1]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/9a17586...v1.0.0
