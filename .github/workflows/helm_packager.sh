@@ -259,13 +259,13 @@ get_latest_version_in_changelog()
 					fi
 					IS_INITIAL_VERSION=0
 				fi
-			elif echo "${LINE}" | grep "^.*<\!--.*$" >/dev/null 2>&1; then
+			elif echo "${LINE}" | grep -q "^.*<\!--.*$"; then
 				_IN_COMMENT=1
 			else
 				:
 			fi
 		else
-			if echo "${LINE}" | grep "^.*-->.*$" >/dev/null 2>&1; then
+			if echo "${LINE}" | grep -q "^.*-->.*$"; then
 				_IN_COMMENT=0
 			else
 				:
@@ -314,15 +314,15 @@ extract_changelog_content()
 			# Check target version line(Level 2)
 			#
 			if [ "${_IN_COMMENT}" -eq 0 ]; then
-				if echo "${LINE}" | grep "^## \[${_TARGET_VERSION}\].*$" >/dev/null 2>&1; then
+				if echo "${LINE}" | grep -q "^## \[${_TARGET_VERSION}\].*$"; then
 					_IN_TARGET=1
-				elif echo "${LINE}" | grep "^.*<\!--.*$" >/dev/null 2>&1; then
+				elif echo "${LINE}" | grep -q "^.*<\!--.*$"; then
 					_IN_COMMENT=1
 				else
 					:
 				fi
 			else
-				if echo "${LINE}" | grep "^.*-->.*$" >/dev/null 2>&1; then
+				if echo "${LINE}" | grep -q "^.*-->.*$"; then
 					_IN_COMMENT=0
 				else
 					:
@@ -333,21 +333,21 @@ extract_changelog_content()
 			# In target version section, Check target version line(Level 3)
 			#
 			if [ "${_IN_COMMENT}" -eq 0 ]; then
-				if echo "${LINE}" | grep "^# .*$" >/dev/null 2>&1; then
+				if echo "${LINE}" | grep -q "^# .*$"; then
 					_IN_TARGET=0
-				elif echo "${LINE}" | grep "^## .*$" >/dev/null 2>&1; then
+				elif echo "${LINE}" | grep -q "^## .*$"; then
 					_IN_TARGET=0
-				elif echo "${LINE}" | grep "^### .*$" >/dev/null 2>&1; then
+				elif echo "${LINE}" | grep -q "^### .*$"; then
 					_IN_TARGET=2
-				elif echo "${LINE}" | grep "^###.*$" >/dev/null 2>&1; then
+				elif echo "${LINE}" | grep -q "^###.*$"; then
 					_IN_TARGET=0
-				elif echo "${LINE}" | grep "^.*<\!--.*$" >/dev/null 2>&1; then
+				elif echo "${LINE}" | grep -q "^.*<\!--.*$"; then
 					_IN_COMMENT=1
 				else
 					:
 				fi
 			else
-				if echo "${LINE}" | grep "^.*-->.*$" >/dev/null 2>&1; then
+				if echo "${LINE}" | grep -q "^.*-->.*$"; then
 					_IN_COMMENT=0
 				else
 					:
@@ -358,21 +358,21 @@ extract_changelog_content()
 			# In target version section, Check target line(Level 4)
 			#
 			if [ "${_IN_COMMENT}" -eq 0 ]; then
-				if echo "${LINE}" | grep "^- .*$" >/dev/null 2>&1; then
+				if echo "${LINE}" | grep -q "^- .*$"; then
 					#
 					# Found
 					#
 					_RESULT_CODE=0
 					echo "${LINE}"
-				elif echo "${LINE}" | grep "^#.*$" >/dev/null 2>&1; then
+				elif echo "${LINE}" | grep -q "^#.*$"; then
 					_IN_TARGET=0
-				elif echo "${LINE}" | grep "^.*<\!--.*$" >/dev/null 2>&1; then
+				elif echo "${LINE}" | grep -q "^.*<\!--.*$"; then
 					_IN_COMMENT=1
 				else
 					:
 				fi
 			else
-				if echo "${LINE}" | grep "^.*-->.*$" >/dev/null 2>&1; then
+				if echo "${LINE}" | grep -q "^.*-->.*$"; then
 					_IN_COMMENT=0
 				else
 					:
@@ -794,6 +794,6 @@ exit 0
 # tab-width: 4
 # c-basic-offset: 4
 # End:
-# vim600: expandtab sw=4 ts=4 fdm=marker
-# vim<600: expandtab sw=4 ts=4
+# vim600: noexpandtab sw=4 ts=4 fdm=marker
+# vim<600: noexpandtab sw=4 ts=4
 #
