@@ -44,9 +44,11 @@ if [ -f "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" ]; then
 	K2HR3_YRN_RESOURCE=$(tr -d '\n' < "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" 2>/dev/null)
 	CHMPX_MODE=$(echo "${K2HR3_YRN_RESOURCE}" | sed 's#[:/]# #g' | awk '{print $NF}')
 else
-	if [ "X$1" = "XSERVER" ] || [ "X$1" = "Xserver" ]; then
+	if [ -z "$1" ]; then
 		CHMPX_MODE="server"
-	elif [ "X$1" = "XSLAVE" ] || [ "X$1" = "Xslave" ]; then
+	elif [ "$1" = "SERVER" ] || [ "$1" = "server" ]; then
+		CHMPX_MODE="server"
+	elif [ "$1" = "SLAVE" ] || [ "$1" = "slave" ]; then
 		CHMPX_MODE="slave"
 	else
 		CHMPX_MODE="server"

@@ -32,11 +32,11 @@ SCRIPTDIR=$(cd "${SCRIPTDIR}" || exit 1; pwd)
 #----------------------------------------------------------
 # Check enviroment values
 #----------------------------------------------------------
-if [ "X${K2HDKC_CLUSTER_NAME}" = "X" ]; then
+if [ -z "${K2HDKC_CLUSTER_NAME}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_CLUSTER_NAME environment is not specified."
 	exit 1
 fi
-if [ "X${K2HDKC_SERVER_COUNT}" = "X" ]; then
+if [ -z "${K2HDKC_SERVER_COUNT}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_SERVER_COUNT environment is not specified."
 	exit 1
 fi
@@ -44,15 +44,13 @@ fi
 #----------------------------------------------------------
 # Check curl command and install
 #----------------------------------------------------------
-CURL_COMMAND=$(command -v curl | tr -d '\n')
-if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
-	APK_COMMAND=$(command -v apk | tr -d '\n')
-	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+# shellcheck disable=SC2034
+if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
+	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
 		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
 		exit 1
 	fi
-	${APK_COMMAND} add -q --no-progress --no-cache curl
-	if [ $? -ne 0 ]; then
+	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
 		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
 		exit 1
 	fi
@@ -166,8 +164,7 @@ sleep 60
 #
 # Run k2hdkclinetool
 #
-k2hdkclinetool -conf "${INI_FILE_PATH}" -perm -run "${COMMAND_FILE}"  > "${RESULT_FILE}"
-if [ $? -ne 0 ]; then
+if ! k2hdkclinetool -conf "${INI_FILE_PATH}" -perm -run "${COMMAND_FILE}"  > "${RESULT_FILE}"; then
 	echo "[ERROR] ${PRGNAME} : Failed to run k2hdkclinetool command."
 	cleanup_all
 	exit 1
@@ -176,8 +173,7 @@ fi
 #
 # Compare result
 #
-diff "${EXPECTED_FILE}" "${RESULT_FILE}" >/dev/null 2>&1
-if [ $? -ne 0 ]; then
+if ! diff "${EXPECTED_FILE}" "${RESULT_FILE}" >/dev/null 2>&1; then
 	echo "[ERROR] ${PRGNAME} : The k2hdkclinetool test result is different from the expected result."
 	cleanup_all
 	exit 1

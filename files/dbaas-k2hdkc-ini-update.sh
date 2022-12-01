@@ -105,15 +105,13 @@ prn_msg()
 #
 # Check curl command
 #
-CURL_COMMAND=$(command -v curl | tr -d '\n')
-if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
-	APK_COMMAND=$(command -v apk | tr -d '\n')
-	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+# shellcheck disable=SC2034
+if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
+	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
 		prn_msg "[ERROR] This container it not ALPINE, It does not support installations other than ALPINE, so exit."
 		exit 1
 	fi
-	${APK_COMMAND} add -q --no-progress --no-cache curl
-	if [ $? -ne 0 ]; then
+	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
 		prn_msg "[ERROR] Failed to install curl by apk(ALPINE)."
 		exit 1
 	fi
@@ -123,33 +121,33 @@ fi
 # Main loop - This script is run as daemon
 #
 FILE_NOT_UPDATED_YET=1
-while [ ${FILE_NOT_UPDATED_YET} -le 1 ]; do
-	if [ ${FILE_NOT_UPDATED_YET} -ne 1 ]; then
+while [ "${FILE_NOT_UPDATED_YET}" -le 1 ]; do
+	if [ "${FILE_NOT_UPDATED_YET}" -ne 1 ]; then
 		LOOP_SLEEP_CUR=$((LOOP_SLEEP_CUR + LOOP_SLEEP_ADD))
-		if [ ${LOOP_SLEEP_MAX} -lt ${LOOP_SLEEP_CUR} ]; then
+		if [ "${LOOP_SLEEP_MAX}" -lt "${LOOP_SLEEP_CUR}" ]; then
 			LOOP_SLEEP_CUR=${LOOP_SLEEP_MAX}
 		fi
 	fi
-	sleep ${LOOP_SLEEP_CUR}
+	sleep "${LOOP_SLEEP_CUR}"
 
 	#prn_msg "[MESSAGE] Start ----------------------------------------"
 
 	#
 	# Check files
 	#
-	if [ ! -f ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_API_URL} ]; then 
+	if [ ! -f "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_API_URL}" ]; then
 		prn_msg "[ERROR] Not found ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_API_URL}"
 		continue;
 	fi
-	if [ ! -f ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE} ]; then 
+	if [ ! -f "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}" ]; then
 		prn_msg "[ERROR] Not found ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_RESOURCE}"
 		continue;
 	fi
-	if [ ! -f ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN} ]; then 
+	if [ ! -f "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN}" ]; then
 		prn_msg "[ERROR] Not found ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN}"
 		continue;
 	fi
-	if [ ! -f ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_CUK} ]; then 
+	if [ ! -f "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_CUK}" ]; then
 		prn_msg "[ERROR] Not found ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_CUK}"
 		continue;
 	fi
@@ -157,7 +155,7 @@ while [ ${FILE_NOT_UPDATED_YET} -le 1 ]; do
 	#
 	# Check CA cert
 	#
-	if [ -f ${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE} ]; then
+	if [ -f "${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}" ]; then
 		K2HR3_CA_CERT_OPTION="--cacert"
 		K2HR3_CA_CERT_OPTION_VALUE="${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}"
 	else
@@ -182,13 +180,13 @@ while [ ${FILE_NOT_UPDATED_YET} -le 1 ]; do
 	#
 	# Get the resource which is configuration file template
 	#
+	# shellcheck disable=SC2086
 	RESOURCE_STRING=$(curl -s -S -X GET ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -H "Content-Type: application/json" -H "x-auth-token: R=${K2HR3_ROLE_TOKEN}" "${K2HR3_RESOURCE_URL}/${K2HR3_YRN_RESOURCE}" 2>&1)
 
 	#
 	# Check got resource result
 	#
-	echo "${RESOURCE_STRING}" | tr '[:lower:]' '[:upper:]' | grep '["]*RESULT["]*:[[:space:]]*TRUE[[:space:]]*,' >/dev/null 2>&1
-	if [ $? -ne 0 ]; then
+	if ! echo "${RESOURCE_STRING}" | tr '[:lower:]' '[:upper:]' | grep '["]*RESULT["]*:[[:space:]]*TRUE[[:space:]]*,' >/dev/null 2>&1; then
 		prn_msg "[ERROR] Could not get resource from K2HR3(${K2HR3_RESOURCE_URL}/${K2HR3_YRN_RESOURCE})"
 		prn_msg "[ERROR] Result: ${RESOURCE_STRING}"
 		continue;
@@ -219,8 +217,7 @@ while [ ${FILE_NOT_UPDATED_YET} -le 1 ]; do
 		#
 		# Compare without blank lines
 		#
-		diff -B "${RESOURCE_COMPARE_CUR_FILE}" "${RESOURCE_COMPARE_NEW_FILE}" >/dev/null 2>&1
-		if [ $? -ne 0 ]; then
+		if ! diff -B "${RESOURCE_COMPARE_CUR_FILE}" "${RESOURCE_COMPARE_NEW_FILE}" >/dev/null 2>&1; then
 			FOUND_DIFFERENCE=1
 		fi
 
@@ -232,9 +229,8 @@ while [ ${FILE_NOT_UPDATED_YET} -le 1 ]; do
 	#
 	# Update configuarion file
 	#
-	if [ ${FOUND_DIFFERENCE} -eq 1 ]; then
-		cp "${RESOURCE_TEMP_FILE}" "${ANTPICKAX_ETC_DIR}/${K2HDDKC_INI_FILE}" 2>/dev/null
-		if [ $? -ne 0 ]; then
+	if [ "${FOUND_DIFFERENCE}" -eq 1 ]; then
+		if ! cp "${RESOURCE_TEMP_FILE}" "${ANTPICKAX_ETC_DIR}/${K2HDDKC_INI_FILE}" 2>/dev/null; then
 			rm -f "${RESOURCE_TEMP_FILE}"
 			prn_msg "[ERROR] Could not copy resource file to ${ANTPICKAX_ETC_DIR}/${K2HDDKC_INI_FILE}"
 			continue;

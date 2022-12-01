@@ -42,27 +42,27 @@ SCRIPTDIR=$(cd "${SCRIPTDIR}" || exit 1; pwd)
 #
 # Check environments
 #
-if [ "X${K2HR3_API_URL}" = "X" ]; then
+if [ -z "${K2HR3_API_URL}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HR3_API_URL environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HR3_TENANT}" = "X" ]; then
+if [ -z "${K2HR3_TENANT}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HR3_TENANT environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${SEC_CA_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_CA_MOUNTPOINT}" ]; then
+if [ -z "${SEC_CA_MOUNTPOINT}" ] || [ ! -d "${SEC_CA_MOUNTPOINT}" ]; then
 	echo "[ERROR] ${PRGNAME} : SEC_CA_MOUNTPOINT environment is not set or not directory." 1>&2
 	exit 1
 fi
-if [ "X${SEC_K2HR3_TOKEN_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_K2HR3_TOKEN_MOUNTPOINT}" ]; then
+if [ -z "${SEC_K2HR3_TOKEN_MOUNTPOINT}" ] || [ ! -d "${SEC_K2HR3_TOKEN_MOUNTPOINT}" ]; then
 	echo "[ERROR] ${PRGNAME} : SEC_K2HR3_TOKEN_MOUNTPOINT environment is not set or not directory." 1>&2
 	exit 1
 fi
-if [ "X${SEC_UTOKEN_FILENAME}" = "X" ]; then
+if [ -z "${SEC_UTOKEN_FILENAME}" ]; then
 	echo "[ERROR] ${PRGNAME} : SEC_UTOKEN_FILENAME environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_CLUSTER_NAME}" = "X" ]; then
+if [ -z "${K2HDKC_CLUSTER_NAME}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_CLUSTER_NAME environment is not set." 1>&2
 	exit 1
 fi
@@ -85,7 +85,7 @@ REQOPT_OUTPUT="-o ${RESPONSE_FILE}"
 REQOPT_CACERT=""
 if [ -n "${SEC_CA_MOUNTPOINT}" ] && [ -d "${SEC_CA_MOUNTPOINT}" ]; then
 	CA_CERT_FILE=$(find "${SEC_CA_MOUNTPOINT}/" -name '*_CA.crt' | head -1)
-	if [ "X${CA_CERT_FILE}" != "X" ]; then
+	if [ -n "${CA_CERT_FILE}" ]; then
 		REQOPT_CACERT="--cacert ${CA_CERT_FILE}"
 	fi
 fi
@@ -93,15 +93,13 @@ fi
 #----------------------------------------------------------
 # Check curl command
 #----------------------------------------------------------
-CURL_COMMAND=$(command -v curl | tr -d '\n')
-if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
-	APK_COMMAND=$(command -v apk | tr -d '\n')
-	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+# shellcheck disable=SC2034
+if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
+	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
 		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
 		exit 1
 	fi
-	${APK_COMMAND} add -q --no-progress --no-cache curl
-	if [ $? -ne 0 ]; then
+	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
 		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
 		exit 1
 	fi
@@ -141,13 +139,12 @@ get_k2hr3_scoped_token()
 	#	201
 	#	{"result":true,"message":"succeed","scoped":true,"token":"<token>"}
 	#
-	REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens")
-	if [ $? -ne 0 ]; then
+	if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
 		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
 		rm -f "${RESPONSE_FILE}"
 		return 1
 	fi
-	if [ "X${REQ_EXIT_CODE}" != "X201" ]; then
+	if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "201" ]; then
 		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})"
 		rm -f "${RESPONSE_FILE}"
 		return 1
@@ -157,7 +154,7 @@ get_k2hr3_scoped_token()
 	REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 	REQ_SCOPED=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*scoped=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 	REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
-	if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "X${REQ_RESULT}" != "Xtrue" ] || [ "X${REQ_SCOPED}" != "Xtrue" ]; then
+	if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "${REQ_RESULT}" != "true" ] || [ "${REQ_SCOPED}" != "true" ]; then
 		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\""
 		rm -f "${RESPONSE_FILE}"
 		return 1
@@ -193,13 +190,12 @@ raw_delete_request()
 
 	rm -f "${RESPONSE_FILE}"
 
-	REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X DELETE ${K2HR3_API_URL}${REQUERST_URL_PATH}")
-	if [ $? -ne 0 ]; then
+	if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X DELETE ${K2HR3_API_URL}${REQUERST_URL_PATH}"); then
 		echo "[ERROR] ${PRGNAME} : Delete request(${REQUERST_URL_PATH}) is failed with curl error code"
 		rm -f "${RESPONSE_FILE}"
 		return 1
 	fi
-	if [ "X${REQ_EXIT_CODE}" != "X204" ]; then
+	if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "204" ]; then
 		echo "[ERROR] ${PRGNAME} : Delete request(${REQUERST_URL_PATH}) is failed with http exit code(${REQ_EXIT_CODE})"
 		rm -f "${RESPONSE_FILE}"
 		return 1
@@ -218,8 +214,10 @@ if [ ! -f "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}" ]; then
 fi
 K2HR3_UNSCOPED_TOKEN=$(tr -d '\n' < "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}")
 
-get_k2hr3_scoped_token "${K2HR3_UNSCOPED_TOKEN}" "${K2HR3_TENANT}"
-if [ $? -ne 0 ] || [ -z "${K2HR3_SCOPED_TOKEN}" ]; then
+if ! get_k2hr3_scoped_token "${K2HR3_UNSCOPED_TOKEN}" "${K2HR3_TENANT}"; then
+	exit 1
+fi
+if [ -z "${K2HR3_SCOPED_TOKEN}" ]; then
 	exit 1
 fi
 
@@ -242,8 +240,7 @@ IS_SAFE_REMOVE_MAIN=1
 #
 # role for server
 #
-raw_delete_request "/v1/role/${K2HDKC_CLUSTER_NAME}/server"
-if [ $? -ne 0 ]; then
+if ! raw_delete_request "/v1/role/${K2HDKC_CLUSTER_NAME}/server"; then
 	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME}/server role, but continue..."
 	IS_SAFE_REMOVE_MAIN=0
 	IS_FAIL_DELETE=1
@@ -252,8 +249,7 @@ fi
 #
 # role for slave
 #
-raw_delete_request "/v1/role/${K2HDKC_CLUSTER_NAME}/slave"
-if [ $? -ne 0 ]; then
+if ! raw_delete_request "/v1/role/${K2HDKC_CLUSTER_NAME}/slave"; then
 	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME}/server role, but continue..."
 	IS_SAFE_REMOVE_MAIN=0
 	IS_FAIL_DELETE=1
@@ -263,8 +259,7 @@ fi
 # role for main
 #
 if [ "${IS_SAFE_REMOVE_MAIN}" -eq 1 ]; then
-	raw_delete_request "/v1/role/${K2HDKC_CLUSTER_NAME}"
-	if [ $? -ne 0 ]; then
+	if ! raw_delete_request "/v1/role/${K2HDKC_CLUSTER_NAME}"; then
 		echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME} role, but continue..."
 		IS_FAIL_DELETE=1
 	fi
@@ -281,8 +276,7 @@ fi
 # [Response]
 #	204
 #
-raw_delete_request "/v1/policy/${K2HDKC_CLUSTER_NAME}"
-if [ $? -ne 0 ]; then
+if ! raw_delete_request "/v1/policy/${K2HDKC_CLUSTER_NAME}"; then
 	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME} policy, but continue..."
 	IS_FAIL_DELETE=1
 fi
@@ -301,8 +295,7 @@ IS_SAFE_REMOVE_MAIN=1
 #
 # resource for server
 #
-raw_delete_request "/v1/resource/${K2HDKC_CLUSTER_NAME}/server"
-if [ $? -ne 0 ]; then
+if ! raw_delete_request "/v1/resource/${K2HDKC_CLUSTER_NAME}/server"; then
 	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME}/server resource, but continue..."
 	IS_SAFE_REMOVE_MAIN=0
 	IS_FAIL_DELETE=1
@@ -311,8 +304,7 @@ fi
 #
 # resource for slave
 #
-raw_delete_request "/v1/resource/${K2HDKC_CLUSTER_NAME}/slave"
-if [ $? -ne 0 ]; then
+if ! raw_delete_request "/v1/resource/${K2HDKC_CLUSTER_NAME}/slave"; then
 	echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME}/slave resource, but continue..."
 	IS_SAFE_REMOVE_MAIN=0
 	IS_FAIL_DELETE=1
@@ -322,8 +314,7 @@ fi
 # resource for main
 #
 if [ "${IS_SAFE_REMOVE_MAIN}" -eq 1 ]; then
-	raw_delete_request "/v1/resource/${K2HDKC_CLUSTER_NAME}"
-	if [ $? -ne 0 ]; then
+	if ! raw_delete_request "/v1/resource/${K2HDKC_CLUSTER_NAME}"; then
 		echo "[WARNING] ${PRGNAME} : Failed deleting ${K2HDKC_CLUSTER_NAME} resource, but continue..."
 		IS_FAIL_DELETE=1
 	fi

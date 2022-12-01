@@ -115,15 +115,13 @@ K2HDKC_CONTAINER_ID=""
 #----------------------------------------------------------
 # Check curl command
 #----------------------------------------------------------
-CURL_COMMAND=$(command -v curl | tr -d '\n')
-if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
-	APK_COMMAND=$(command -v apk | tr -d '\n')
-	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+# shellcheck disable=SC2034
+if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
+	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
 		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
 		exit 1
 	fi
-	${APK_COMMAND} add -q --no-progress --no-cache curl
-	if [ $? -ne 0 ]; then
+	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
 		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
 		exit 1
 	fi
@@ -132,79 +130,82 @@ fi
 #------------------------------------------------------------------------------
 # Check Environments
 #------------------------------------------------------------------------------
-if [ "X${ANTPICKAX_ETC_DIR}" = "X" ] || [ ! -d "${ANTPICKAX_ETC_DIR}" ]; then
+if [ -z "${ANTPICKAX_ETC_DIR}" ] || [ ! -d "${ANTPICKAX_ETC_DIR}" ]; then
 	echo "[ERROR] ${PRGNAME} : ANTPICKAX_ETC_DIR environment is not set or not directory." 1>&2
 	exit 1
 fi
-if [ "X${K2HR3_API_URL}" = "X" ]; then
+if [ -z "${K2HR3_API_URL}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HR3_API_URL environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HR3_YRN_PREFIX}" = "X" ]; then
+if [ -z "${K2HR3_YRN_PREFIX}" ]; then
 	K2HR3_YRN_PREFIX="yrn:yahoo:::"
 fi
-if [ "X${K2HR3_TENANT}" = "X" ]; then
+if [ -z "${K2HR3_TENANT}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HR3_TENANT environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_DOMAIN}" = "X" ]; then
+if [ -z "${K2HDKC_DOMAIN}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_DOMAIN environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_CLUSTER_NAME}" = "X" ]; then
+if [ -z "${K2HDKC_CLUSTER_NAME}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_CLUSTER_NAME environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_MODE}" = "XSERVER" ] || [ "X${K2HDKC_MODE}" = "Xserver" ]; then
+if [ -z "${K2HDKC_MODE}" ]; then
+	echo "[ERROR] ${PRGNAME} : K2HDKC_MODE environment is not set or wrong value, it must be set \"server\" or \"slave\"." 1>&2
+	exit 1
+elif [ "${K2HDKC_MODE}" = "SERVER" ] || [ "${K2HDKC_MODE}" = "server" ]; then
 	K2HDKC_MODE="server"
-elif [ "X${K2HDKC_MODE}" = "XSLAVE" ] || [ "X${K2HDKC_MODE}" = "Xslave" ]; then
+elif [ "${K2HDKC_MODE}" = "SLAVE" ] || [ "${K2HDKC_MODE}" = "slave" ]; then
 	K2HDKC_MODE="slave"
 else
 	echo "[ERROR] ${PRGNAME} : K2HDKC_MODE environment is not set or wrong value, it must be set \"server\" or \"slave\"." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_NODE_NAME}" = "X" ]; then
+if [ -z "${K2HDKC_NODE_NAME}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_NODE_NAME environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_NODE_IP}" = "X" ]; then
+if [ -z "${K2HDKC_NODE_IP}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_NODE_IP environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_POD_NAME}" = "X" ]; then
+if [ -z "${K2HDKC_POD_NAME}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_POD_NAME environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_NAMESPACE}" = "X" ]; then
+if [ -z "${K2HDKC_NAMESPACE}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_NAMESPACE environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_POD_SERVICE_ACCOUNT}" = "X" ]; then
+if [ -z "${K2HDKC_POD_SERVICE_ACCOUNT}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_POD_SERVICE_ACCOUNT environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${K2HDKC_POD_ID}" = "X" ]; then
+if [ -z "${K2HDKC_POD_ID}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_POD_ID environment is not set." 1>&2
 	exit 1
 fi
 # shellcheck disable=SC2153
-if [ "X${K2HDKC_POD_IP}" = "X" ]; then
+if [ -z "${K2HDKC_POD_IP}" ]; then
 	echo "[ERROR] ${PRGNAME} : K2HDKC_POD_IP environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${SEC_CA_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_CA_MOUNTPOINT}" ]; then
+if [ -z "${SEC_CA_MOUNTPOINT}" ] || [ ! -d "${SEC_CA_MOUNTPOINT}" ]; then
 	echo "[ERROR] ${PRGNAME} : SEC_CA_MOUNTPOINT environment is not set or not directory." 1>&2
 	exit 1
 fi
-if [ "X${SEC_K2HR3_TOKEN_MOUNTPOINT}" = "X" ] || [ ! -d "${SEC_K2HR3_TOKEN_MOUNTPOINT}" ]; then
+if [ -z "${SEC_K2HR3_TOKEN_MOUNTPOINT}" ] || [ ! -d "${SEC_K2HR3_TOKEN_MOUNTPOINT}" ]; then
 	echo "[ERROR] ${PRGNAME} : SEC_K2HR3_TOKEN_MOUNTPOINT environment is not set or not directory." 1>&2
 	exit 1
 fi
-if [ "X${SEC_UTOKEN_FILENAME}" = "X" ]; then
+if [ -z "${SEC_UTOKEN_FILENAME}" ]; then
 	echo "[ERROR] ${PRGNAME} : SEC_UTOKEN_FILENAME environment is not set." 1>&2
 	exit 1
 fi
-if [ "X${CERT_PERIOD_DAYS}" = "X" ]; then
+if [ -z "${CERT_PERIOD_DAYS}" ]; then
 	echo "[ERROR] ${PRGNAME} : CERT_PERIOD_DAYS environment is not set." 1>&2
 	exit 1
 fi
@@ -226,7 +227,7 @@ REQOPT_OUTPUT="-o ${RESPONSE_FILE}"
 REQOPT_CACERT=""
 if [ -n "${SEC_CA_MOUNTPOINT}" ] && [ -d "${SEC_CA_MOUNTPOINT}" ]; then
 	CA_CERT_FILE=$(find "${SEC_CA_MOUNTPOINT}/" -name '*_CA.crt' | head -1)
-	if [ "X${CA_CERT_FILE}" != "X" ]; then
+	if [ -n "${CA_CERT_FILE}" ]; then
 		REQOPT_CACERT="--cacert ${CA_CERT_FILE}"
 	fi
 fi
@@ -252,13 +253,12 @@ rm -f "${RESPONSE_FILE}"
 REQUEST_POST_BODY="-d '{\"auth\":{\"tenantName\":\"${K2HR3_TENANT}\"}}'"
 REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_UNSCOPED_TOKEN}\""
 
-REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens")
-if [ $? -ne 0 ]; then
+if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
 	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
 	rm -f "${RESPONSE_FILE}"
 	exit 1
 fi
-if [ "X${REQ_EXIT_CODE}" != "X201" ]; then
+if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "201" ]; then
 	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})"
 	rm -f "${RESPONSE_FILE}"
 	exit 1
@@ -271,7 +271,7 @@ REQ_RESULT=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*r
 REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 REQ_SCOPED=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*scoped=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
-if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "X${REQ_RESULT}" != "Xtrue" ] || [ "X${REQ_SCOPED}" != "Xtrue" ]; then
+if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "${REQ_RESULT}" != "true" ] || [ "${REQ_SCOPED}" != "true" ]; then
 	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\""
 	rm -f "${RESPONSE_FILE}"
 	exit 1
@@ -293,13 +293,12 @@ rm -f "${RESPONSE_FILE}"
 REQUEST_URLARGS="/v1/role/token/${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}"
 REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_SCOPED_TOKEN}\""
 
-REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} -X GET ${K2HR3_API_URL}${REQUEST_URLARGS}?expire=0")
-if [ $? -ne 0 ]; then
+if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} -X GET ${K2HR3_API_URL}${REQUEST_URLARGS}?expire=0"); then
 	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with curl error code"
 	rm -f "${RESPONSE_FILE}"
 	exit 1
 fi
-if [ "X${REQ_EXIT_CODE}" != "X200" ]; then
+if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "200" ]; then
 	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with http exit code(${REQ_EXIT_CODE})"
 	rm -f "${RESPONSE_FILE}"
 	exit 1
@@ -308,7 +307,7 @@ fi
 REQ_RESULT=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*result=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
-if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "X${REQ_RESULT}" != "Xtrue" ] || [ "X${REQ_SCOPED}" != "Xtrue" ]; then
+if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "${REQ_RESULT}" != "true" ] || [ "${REQ_SCOPED}" != "true" ]; then
 	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed by \"${REQ_MESSAGE}\""
 	rm -f "${RESPONSE_FILE}"
 	exit 1
@@ -324,8 +323,7 @@ rm -f "${RESPONSE_FILE}"
 # Make CONTAINER_ID with checking pod id
 #
 # shellcheck disable=SC2010
-POC_FILE_NAMES=$(ls -1 /proc/ | grep -E "[0-9]+" 2>/dev/null)
-if [ $? -ne 0 ]; then
+if ! POC_FILE_NAMES=$(ls -1 /proc/ | grep -E "[0-9]+" 2>/dev/null); then
 	echo "[ERROR] ${PRGNAME} : Could not find any /proc/<process id> directory." 1>&2
 	exit 1
 fi
@@ -335,32 +333,30 @@ for local_procid in ${POC_FILE_NAMES}; do
 	if [ ! -f /proc/"${local_procid}"/cgroup ]; then
 		continue
 	fi
-	local_all_line=$(cat /proc/"${local_procid}"/cgroup)
-	if [ $? -ne 0 ]; then
+	if ! local_all_line=$(cat /proc/"${local_procid}"/cgroup); then
 		continue
 	fi
 	for local_line in ${local_all_line}; do
-		CONTAINER_ID_UIDS=$(echo "${local_line}" | sed -e 's#.*pod##g' -e 's#\.slice##g' -e 's#\.scope##g' -e 's#docker-##g' 2>/dev/null)
-		if [ $? -ne 0 ]; then
+		if ! CONTAINER_ID_UIDS=$(echo "${local_line}" | sed -e 's#.*pod##g' -e 's#\.slice##g' -e 's#\.scope##g' -e 's#docker-##g' 2>/dev/null); then
 			continue
 		fi
-		if [ "X${CONTAINER_ID_UIDS}" != "X" ]; then
+		if [ -n "${CONTAINER_ID_UIDS}" ]; then
 			break
 		fi
 	done
-	if [ "X${CONTAINER_ID_UIDS}" != "X" ]; then
+	if [ -n "${CONTAINER_ID_UIDS}" ]; then
 		break
 	fi
 done
 
-if [ "X${CONTAINER_ID_UIDS}" != "X" ]; then
+if [ -n "${CONTAINER_ID_UIDS}" ]; then
 	K2HDKC_TMP_POD_ID=$(echo "${CONTAINER_ID_UIDS}" | sed -e 's#/# #g' 2>/dev/null | awk '{print $1}' 2>/dev/null)
 	K2HDKC_CONTAINER_ID=$(echo "${CONTAINER_ID_UIDS}" | sed -e 's#/# #g' 2>/dev/null | awk '{print $2}' 2>/dev/null)
 
-	if [ "X${K2HDKC_POD_ID}" = "X" ]; then
+	if [ -z "${K2HDKC_POD_ID}" ]; then
 		K2HDKC_POD_ID=${K2HDKC_TMP_POD_ID}
 	else
-		if [ "X${K2HDKC_POD_ID}" != "X${K2HDKC_TMP_POD_ID}" ]; then
+		if [ -z "${K2HDKC_TMP_POD_ID}" ] || [ "${K2HDKC_POD_ID}" != "${K2HDKC_TMP_POD_ID}" ]; then
 			echo "[WARNING] ${PRGNAME} : Specified pod id(${K2HDKC_POD_ID}) is not correct, so that use current pod id(${K2HDKC_TMP_POD_ID}) instead of it." 1>&2
 			K2HDKC_POD_ID=${K2HDKC_TMP_POD_ID}
 		fi
@@ -392,8 +388,7 @@ fi
 #	'/'				to '_'
 #	'='(end word)	to '%3d'
 #
-K2HDKC_REG_RAND=$(od -vAn -tx8 -N16 < /dev/urandom 2>/dev/null | tr -d '[:blank:]' 2>/dev/null)
-if [ $? -ne 0 ]; then
+if ! K2HDKC_REG_RAND=$(od -vAn -tx8 -N16 < /dev/urandom 2>/dev/null | tr -d '[:blank:]' 2>/dev/null); then
 	echo "[ERROR] ${PRGNAME} : Could not make 64 bytes random value for CUK value." 1>&2
 	exit 1
 fi
@@ -411,13 +406,11 @@ CUK_STRING="{\
 \"k8s_service_account\":\"${K2HDKC_POD_SERVICE_ACCOUNT}\"\
 }"
 
-CUK_BASE64_STRING=$(echo "${CUK_STRING}" 2>/dev/null | tr -d '\n' | sed -e 's/ //g' 2>/dev/null | base64 2>/dev/null | tr -d '\n' 2>/dev/null)
-if [ $? -ne 0 ]; then
+if ! CUK_BASE64_STRING=$(echo "${CUK_STRING}" 2>/dev/null | tr -d '\n' | sed -e 's/ //g' 2>/dev/null | base64 2>/dev/null | tr -d '\n' 2>/dev/null); then
 	echo "[ERROR] ${PRGNAME} : Could not make base64 string for CUK value." 1>&2
 	exit 1
 fi
-CUK_BASE64_URLENC=$(echo "${CUK_BASE64_STRING}" 2>/dev/null | tr -d '\n' | sed -e 's/+/-/g' -e 's#/#_#g' -e 's/=/%3d/g' 2>/dev/null)
-if [ $? -ne 0 ]; then
+if ! CUK_BASE64_URLENC=$(echo "${CUK_BASE64_STRING}" 2>/dev/null | tr -d '\n' | sed -e 's/+/-/g' -e 's#/#_#g' -e 's/=/%3d/g' 2>/dev/null); then
 	echo "[ERROR] ${PRGNAME} : Could not make base64 url encode string for CUK value." 1>&2
 	exit 1
 fi
@@ -458,12 +451,11 @@ echo "${K2HR3_ROLE_TOKEN}"												| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBA
 #------------------------------------------------------------------------------
 # Create certificate and Save those
 #------------------------------------------------------------------------------
-if [ "X${SEC_CA_MOUNTPOINT}" != "X" ]; then
+if [ -n "${SEC_CA_MOUNTPOINT}" ]; then
 	#
 	# Create certificate for me
 	#
-	/bin/sh "${SRCTOP}/dbaas-setup-certificate.sh" "${ANTPICKAX_ETC_DIR}" "${SEC_CA_MOUNTPOINT}" "${CERT_PERIOD_DAYS}"
-	if [ $? -ne 0 ]; then
+	if ! /bin/sh "${SRCTOP}/dbaas-setup-certificate.sh" "${ANTPICKAX_ETC_DIR}" "${SEC_CA_MOUNTPOINT}" "${CERT_PERIOD_DAYS}"; then
 		echo "[ERROR] ${PRGNAME} : Failed to creating certificate." 1>&2
 		exit 1
 	fi
