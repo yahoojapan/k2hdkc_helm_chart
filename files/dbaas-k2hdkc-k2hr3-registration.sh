@@ -69,7 +69,7 @@ K2HR3_FILE_APIARG="k2hr3-apiarg"
 #
 # Check CA cert
 #
-if [ -f ${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE} ]; then
+if [ -f "${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}" ]; then
 	K2HR3_CA_CERT_OPTION="--cacert"
 	K2HR3_CA_CERT_OPTION_VALUE="${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}"
 else
@@ -80,8 +80,7 @@ fi
 #
 # Get K2HR3 ROLE TOKEN
 #
-K2HDKC_ROLE_TOKEN=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN} 2>/dev/null)
-if [ $? -ne 0 ]; then
+if ! K2HDKC_ROLE_TOKEN=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN} 2>/dev/null); then
 	echo "[ERROR] ${PRGNAME} : Could not load role token from secret." 1>&2
 	exit 1
 fi
@@ -89,9 +88,9 @@ fi
 #
 # Get Parameters from files
 #
-K2HR3_REGISTER_URL=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_REGISTER_URL} 2>/dev/null)
-K2HR3_ROLE=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE} 2>/dev/null)
-K2HR3_APIARG=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_APIARG} 2>/dev/null)
+K2HR3_REGISTER_URL=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_REGISTER_URL}" 2>/dev/null)
+K2HR3_ROLE=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE}" 2>/dev/null)
+K2HR3_APIARG=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_APIARG}" 2>/dev/null)
 
 #
 # Check curl command
@@ -105,18 +104,15 @@ CURL_INSTALLED=0
 RETRY_COUNT=30
 while [ "${CURL_INSTALLED}" -eq 0 ] && [ "${RETRY_COUNT}" -ne 0 ]; do
 
-	CURL_COMMAND=$(command -v curl | tr -d '\n')
-	if [ $? -ne 0 ] || [ -z "${CURL_COMMAND}" ]; then
+	if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
 		RETRY_COUNT=$((RETRY_COUNT - 1))
 
-		APK_COMMAND=$(command -v apk | tr -d '\n')
-		if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+		if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
 			echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit." 1>&2
 			exit 1
 		fi
 
-		${APK_COMMAND} add -q --no-progress --no-cache curl
-		if [ $? -ne 0 ]; then
+		if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
 			echo "[WARNING] ${PRGNAME} : Failed to install curl by apk(ALPINE), so retry it" 1>&2
 			SLEEP_COMMAND=$(command -v sleep | tr -d '\n')
 			${SLEEP_COMMAND} 2
@@ -135,18 +131,18 @@ fi
 #------------------------------------------------------------------------------
 REGISTER_MODE=
 while [ $# -ne 0 ]; do
-	if [ "X$1" = "X" ]; then
+	if [ -z "$1" ]; then
 		break
 
-	elif [ "X$1" = "X-reg" ] || [ "X$1" = "X-REG" ] || [ "X$1" = "X--register" ] || [ "X$1" = "X--REGISTER" ]; then
-		if [ "X${REGISTER_MODE}" != "X" ]; then
+	elif [ "$1" = "-reg" ] || [ "$1" = "-REG" ] || [ "$1" = "--register" ] || [ "$1" = "--REGISTER" ]; then
+		if [ -n "${REGISTER_MODE}" ]; then
 			echo "[ERROR] ${PRGNAME} : already set \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
 			exit 1
 		fi
 		REGISTER_MODE=1
 
-	elif [ "X$1" = "X-del" ] || [ "X$1" = "X-DEL" ] || [ "X$1" = "X--delete" ] || [ "X$1" = "X--DELETE" ]; then
-		if [ "X${REGISTER_MODE}" != "X" ]; then
+	elif [ "$1" = "-del" ] || [ "$1" = "-DEL" ] || [ "$1" = "--delete" ] || [ "$1" = "--DELETE" ]; then
+		if [ -n "${REGISTER_MODE}" ]; then
 			echo "[ERROR] ${PRGNAME} : already set \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
 			exit 1
 		fi
@@ -159,7 +155,7 @@ while [ $# -ne 0 ]; do
 	shift
 done
 
-if [ "X${REGISTER_MODE}" = "X" ]; then
+if [ -z "${REGISTER_MODE}" ]; then
 	echo "[ERROR] ${PRGNAME} : specify \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
 	exit 1
 fi
@@ -174,12 +170,12 @@ fi
 # 	Registration:	curl -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X PUT -H "x-auth-token: R=${K2HDKC_ROLE_TOKEN}" "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"
 # 	Deletion:		curl -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X DELETE "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"
 #
-if [ ${REGISTER_MODE} -eq 1 ]; then
+if [ "${REGISTER_MODE}" -eq 1 ]; then
 	#
 	# Registration
 	#
-	${CURL_COMMAND} -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X PUT -H "x-auth-token: R=${K2HDKC_ROLE_TOKEN}" "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"
-	if [ $? -ne 0 ]; then
+	# shellcheck disable=SC2086
+	if ! "${CURL_COMMAND}" -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X PUT -H "x-auth-token: R=${K2HDKC_ROLE_TOKEN}" "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"; then
 		echo "[ERROR] ${PRGNAME} : Failed registration to role member." 1>&2
 		exit 1
 	fi
@@ -189,8 +185,8 @@ else
 	#
 	# The Pod(Container) has been registered, so we can access K2HR3 without token to delete it.
 	#
-	${CURL_COMMAND} -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X DELETE "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"
-	if [ $? -ne 0 ]; then
+	# shellcheck disable=SC2086
+	if ! "${CURL_COMMAND}" -s -S ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -X DELETE "${K2HR3_REGISTER_URL}/${K2HR3_ROLE}?${K2HR3_APIARG}"; then
 		echo "[ERROR] ${PRGNAME} : Failed deletion from role member." 1>&2
 		exit 1
 	fi

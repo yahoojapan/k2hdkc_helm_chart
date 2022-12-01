@@ -28,8 +28,7 @@ SCRIPTDIR=$(cd "${SCRIPTDIR}" || exit 1; pwd)
 #
 BREAK_LOOP=0
 while [ "${BREAK_LOOP}" -eq 0 ]; do
-	sleep 60
-	if [ $? -ne 0 ]; then
+	if ! sleep 60; then
 		BREAK_LOOP=1
 	fi
 done

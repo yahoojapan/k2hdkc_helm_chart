@@ -73,8 +73,7 @@ if [ $# -lt 1 ]; then
 	exit 1
 fi
 # shellcheck disable=SC2003
-expr "$1" + 1 >/dev/null 2>&1
-if [ $? -ne 0 ]; then
+if ! expr "$1" + 1 >/dev/null 2>&1; then
 	echo "[ERROR] Third paranmeter for period days is not number."
 	exit 1
 fi
@@ -106,33 +105,27 @@ NODOMAIN_HOST_NAME=$(echo "${FULL_HOST_NAME}" | sed -e "s/\.${LOCAL_DOMAIN}//g")
 CERT_WORK_DIR="${OUTPUT_DIR}/certwork"
 
 if [ ! -d "${CERT_WORK_DIR}" ]; then
-	mkdir -p "${CERT_WORK_DIR}"
-	if [ $? -ne 0 ]; then
+	if ! mkdir -p "${CERT_WORK_DIR}"; then
 		echo "[ERROR] Could not create directory ${CERT_WORK_DIR}"
 		exit 1
 	fi
-	mkdir -p "${CERT_WORK_DIR}/private"
-	if [ $? -ne 0 ]; then
+	if ! mkdir -p "${CERT_WORK_DIR}/private"; then
 		echo "[ERROR] Could not create directory ${CERT_WORK_DIR}/private"
 		exit 1
 	fi
-	mkdir -p "${CERT_WORK_DIR}/newcerts"
-	if [ $? -ne 0 ]; then
+	if ! mkdir -p "${CERT_WORK_DIR}/newcerts"; then
 		echo "[ERROR] Could not create directory ${CERT_WORK_DIR}/newcerts"
 		exit 1
 	fi
-	mkdir -p "${CERT_WORK_DIR}/oldcerts"
-	if [ $? -ne 0 ]; then
+	if ! mkdir -p "${CERT_WORK_DIR}/oldcerts"; then
 		echo "[ERROR] Could not create directory ${CERT_WORK_DIR}/oldcerts"
 		exit 1
 	fi
-	date +%s > "${CERT_WORK_DIR}/serial"
-	if [ $? -ne 0 ]; then
+	if ! date +%s > "${CERT_WORK_DIR}/serial"; then
 		echo "[ERROR] Could not create file ${CERT_WORK_DIR}/serial"
 		exit 1
 	fi
-	touch "${CERT_WORK_DIR}/index.txt"
-	if [ $? -ne 0 ]; then
+	if ! touch "${CERT_WORK_DIR}/index.txt"; then
 		echo "[ERROR] Could not create file ${CERT_WORK_DIR}/index.txt"
 		exit 1
 	fi
@@ -156,7 +149,7 @@ SUBJ_CSR_O="AntPickax"
 #
 ORG_CA_CERT_FILE=$(find "${CA_CERT_DIR}/" -name '*_CA.crt' | head -1)
 ORG_CA_KEY_FILE=$(find "${CA_CERT_DIR}/" -name '*_CA.key' | head -1)
-if [ "X${ORG_CA_CERT_FILE}" = "X" ] || [ "X${ORG_CA_KEY_FILE}" = "X" ]; then
+if [ -z "${ORG_CA_CERT_FILE}" ] || [ -z "${ORG_CA_KEY_FILE}" ]; then
 	echo "[ERROR] CA certificate file or private key file are not existed."
 	exit 1
 fi
@@ -185,15 +178,13 @@ LOG_FILE="${CERT_WORK_DIR}/${PRGNAME}.log"
 #----------------------------------------------------------
 # Check openssl command
 #----------------------------------------------------------
-OPENSSL_COMMAND=$(command -v openssl | tr -d '\n')
-if [ $? -ne 0 ] || [ -z "${OPENSSL_COMMAND}" ]; then
-	APK_COMMAND=$(command -v apk | tr -d '\n')
-	if [ $? -ne 0 ] || [ -z "${APK_COMMAND}" ]; then
+# shellcheck disable=SC2034
+if ! OPENSSL_COMMAND=$(command -v openssl | tr -d '\n'); then
+	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
 		echo "[ERROR] This container it not ALPINE, It does not support installations other than ALPINE, so exit."
 		exit 1
 	fi
-	${APK_COMMAND} add -q --no-progress --no-cache openssl
-	if [ $? -ne 0 ]; then
+	if ! "${APK_COMMAND}" add -q --no-progress --no-cache openssl; then
 		echo "[ERROR] Failed to install openssl by apk(ALPINE)."
 		exit 1
 	fi
@@ -220,16 +211,15 @@ fi
 #	stateOrProvinceName = optional					in [ policy_match ] section
 #	organizationName	= optional					in [ policy_match ] section
 #
-sed -e 's/\[[[:space:]]*CA_default[[:space:]]*\]/\[ CA_default ]\nunique_subject = no\nemail_in_dn = no\nrand_serial = no/g' \
-	-e 's/\[[[:space:]]*v3_ca[[:space:]]*\]/\[ v3_ca ]\nkeyUsage = cRLSign, keyCertSign/g'						\
-	-e "s#^dir[[:space:]]*=[[:space:]]*.*CA.*#dir = ${CERT_WORK_DIR}#g"											\
-	-e 's/^[[:space:]]*countryName[[:space:]]*=[[:space:]]*match.*$/countryName = optional/g'					\
-	-e 's/^[[:space:]]*stateOrProvinceName[[:space:]]*=[[:space:]]*match.*$/stateOrProvinceName = optional/g'	\
-	-e 's/^[[:space:]]*organizationName[[:space:]]*=[[:space:]]*match.*$/organizationName = optional/g'			\
-	"${ORG_OPENSSL_CNF}"																						\
-	> "${CUSTOM_OPENSSL_CNF}"
+if ! sed -e 's/\[[[:space:]]*CA_default[[:space:]]*\]/\[ CA_default ]\nunique_subject = no\nemail_in_dn = no\nrand_serial = no/g' \
+		-e 's/\[[[:space:]]*v3_ca[[:space:]]*\]/\[ v3_ca ]\nkeyUsage = cRLSign, keyCertSign/g'						\
+		-e "s#^dir[[:space:]]*=[[:space:]]*.*CA.*#dir = ${CERT_WORK_DIR}#g"											\
+		-e 's/^[[:space:]]*countryName[[:space:]]*=[[:space:]]*match.*$/countryName = optional/g'					\
+		-e 's/^[[:space:]]*stateOrProvinceName[[:space:]]*=[[:space:]]*match.*$/stateOrProvinceName = optional/g'	\
+		-e 's/^[[:space:]]*organizationName[[:space:]]*=[[:space:]]*match.*$/organizationName = optional/g'			\
+		"${ORG_OPENSSL_CNF}"																						\
+		> "${CUSTOM_OPENSSL_CNF}"; then
 
-if [ $? -ne 0 ]; then
 	echo "[ERROR] Could not create file ${CUSTOM_OPENSSL_CNF}"
 	exit 1
 fi
@@ -284,6 +274,7 @@ fi
 	fi
 } >> "${CUSTOM_OPENSSL_CNF}"
 
+# shellcheck disable=SC2181
 if [ $? -ne 0 ]; then
 	echo "[ERROR] Could not modify file ${CUSTOM_OPENSSL_CNF}"
 	exit 1
@@ -295,18 +286,16 @@ fi
 #
 # Create private key(2048 bit) without passphrase
 #
-openssl genrsa				\
-	-out "${RAW_KEY_FILE}"	\
-	2048					\
-	>> "${LOG_FILE}" 2>&1
+if ! openssl genrsa				\
+		-out "${RAW_KEY_FILE}"	\
+		2048					\
+		>> "${LOG_FILE}" 2>&1; then
 
-if [ $? -ne 0 ]; then
 	echo "[ERROR] Failed to create ${RAW_KEY_FILE} private key."
 	exit 1
 fi
 
-chmod 0400 "${RAW_KEY_FILE}"
-if [ $? -ne 0 ]; then
+if ! chmod 0400 "${RAW_KEY_FILE}"; then
 	echo "[ERROR] Failed to set permission(0400) to ${RAW_KEY_FILE} private key."
 	exit 1
 fi
@@ -314,14 +303,13 @@ fi
 #
 # Create CSR file
 #
-openssl req						\
-	-new						\
-	-key  "${RAW_KEY_FILE}"	\
-	-out  "${RAW_CSR_FILE}"	\
-	-subj "/C=${SUBJ_CSR_C}/ST=${SUBJ_CSR_S}/O=${SUBJ_CSR_O}/CN=${NODOMAIN_HOST_NAME}"	\
-	>> "${LOG_FILE}" 2>&1
+if ! openssl req				\
+		-new					\
+		-key  "${RAW_KEY_FILE}"	\
+		-out  "${RAW_CSR_FILE}"	\
+		-subj "/C=${SUBJ_CSR_C}/ST=${SUBJ_CSR_S}/O=${SUBJ_CSR_O}/CN=${NODOMAIN_HOST_NAME}"	\
+		>> "${LOG_FILE}" 2>&1; then
 
-if [ $? -ne 0 ]; then
 	echo "[ERROR] Failed to create ${RAW_CSR_FILE} CSR file."
 	exit 1
 fi
@@ -329,17 +317,16 @@ fi
 #
 # Create certificate file
 #
-openssl ca								\
-	-batch								\
-	-extensions	v3_svr_clt				\
-	-out		"${RAW_CERT_FILE}"		\
-	-days		"${CERT_PERIOD_DAYS}"	\
-	-passin		"pass:"					\
-	-config		"${CUSTOM_OPENSSL_CNF}" \
-	-infiles	"${RAW_CSR_FILE}"		\
-	>> "${LOG_FILE}" 2>&1
+if ! openssl ca								\
+		-batch								\
+		-extensions	v3_svr_clt				\
+		-out		"${RAW_CERT_FILE}"		\
+		-days		"${CERT_PERIOD_DAYS}"	\
+		-passin		"pass:"					\
+		-config		"${CUSTOM_OPENSSL_CNF}" \
+		-infiles	"${RAW_CSR_FILE}"		\
+		>> "${LOG_FILE}" 2>&1; then
 
-if [ $? -ne 0 ]; then
 	echo "[ERROR] Failed to create ${RAW_CERT_FILE} certificate file."
 	exit 1
 fi
@@ -367,8 +354,7 @@ fi
 #
 # Cleanup files
 #
-rm -rf "${CERT_WORK_DIR}"
-if [ $? -ne 0 ]; then
+if ! rm -rf "${CERT_WORK_DIR}"; then
 	echo "[ERROR] Could not remove directory ${CERT_WORK_DIR}"
 	exit 1
 fi

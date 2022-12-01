@@ -61,7 +61,7 @@ INI_FILE_PATH="${ANTPICKAX_ETC_DIR}/${INI_FILE}"
 #----------------------------------------------------------
 # Main processing
 #----------------------------------------------------------
-if [ "X$1" = "X${WATCHER_OPT}" ]; then
+if [ -n "$1" ] && [ "$1" = "${WATCHER_OPT}" ]; then
 	#
 	# Run watcher
 	#
@@ -89,16 +89,13 @@ if [ "X$1" = "X${WATCHER_OPT}" ]; then
 
 	LOOP_BREAK=0
 	while [ "${LOOP_BREAK}" -eq 0 ]; do
-		chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring servicein -nosuspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
-		if [ $? -eq 0 ]; then
-			chmpxstatus -conf "${INI_FILE_PATH}" -self | grep 'status[[:space:]]*=' | grep '\[ADD\]' | grep '\[Pending\]' >/dev/null 2>&1
-			if [ $? -eq 0 ]; then
+		if chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring servicein -nosuspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1; then
+			if chmpxstatus -conf "${INI_FILE_PATH}" -self | grep 'status[[:space:]]*=' | grep '\[ADD\]' | grep '\[Pending\]' >/dev/null 2>&1; then
 				# 
 				# When the status is "ADD:Pending", type a new ServiceIn command after short sleep.
 				#
 				sleep ${SLEEP_MIDDLE}
-				chmpxstatus -conf "${INI_FILE_PATH}" -self | grep 'status[[:space:]]*=' | grep '\[ADD\]' | grep '\[Pending\]' >/dev/null 2>&1
-				if [ $? -eq 0 ]; then
+				if chmpxstatus -conf "${INI_FILE_PATH}" -self | grep 'status[[:space:]]*=' | grep '\[ADD\]' | grep '\[Pending\]' >/dev/null 2>&1; then
 					#
 					# To Service Out
 					#
@@ -110,14 +107,12 @@ if [ "X$1" = "X${WATCHER_OPT}" ]; then
 				chmpxlinetool -conf "${INI_FILE_PATH}" -run "${WATCHER_STSUPDATE_FILE_PATH}" >/dev/null 2>&1
 			fi
 		else
-			chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring serviceout -nosuspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
-			if [ $? -eq 0 ]; then
+			if chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring serviceout -nosuspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1; then
 				# 
 				# When the status is "ServiceOut:NoSuspend", type a new ServiceIn command after short sleep.
 				#
 				sleep "${SLEEP_MIDDLE}"
-				chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring serviceout -nosuspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
-				if [ $? -eq 0 ]; then
+				if chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring serviceout -nosuspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1; then
 					#
 					# To Service In
 					#
@@ -141,10 +136,8 @@ else
 		#
 		LOOP_TIME_COUNTER="${SLEEP_MIDDLE}"
 		while [ "${LOOP_TIME_COUNTER}" -gt 0 ]; do
-			chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring serviceout -suspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
-			if [ $? -ne 0 ]; then
-				chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring servicein -suspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1
-				if [ $? -ne 0 ]; then
+			if ! chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring serviceout -suspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1; then
+				if ! chmpxstatus -conf "${INI_FILE_PATH}" -self -wait -live up -ring servicein -suspend -timeout "${SLEEP_SHORT}" >/dev/null 2>&1; then
 					break;
 				fi
 			fi
