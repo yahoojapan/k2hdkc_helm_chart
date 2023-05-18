@@ -123,16 +123,24 @@ fi
 #----------------------------------------------------------
 # Check curl command
 #----------------------------------------------------------
-# shellcheck disable=SC2034
-if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
-	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+if command -v curl >/dev/null 2>&1; then
+	CURL_COMMAND=$(command -v curl | tr -d '\n')
+else
+	if ! command -v apk >/dev/null 2>&1; then
 		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
 		exit 1
 	fi
+	APK_COMMAND=$(command -v apk | tr -d '\n')
+
 	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
 		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
 		exit 1
 	fi
+	if ! command -v curl >/dev/null 2>&1; then
+		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
+		exit 1
+	fi
+	CURL_COMMAND=$(command -v curl | tr -d '\n')
 fi
 
 #----------------------------------------------------------
@@ -169,7 +177,7 @@ get_k2hr3_scoped_token()
 	#	201
 	#	{"result":true,"message":"succeed","scoped":true,"token":"<token>"}
 	#
-	if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
+	if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
 		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
 		rm -f "${RESPONSE_FILE}"
 		return 1
@@ -227,7 +235,7 @@ raw_post_request()
 
 	rm -f "${RESPONSE_FILE}"
 
-	if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}${REQUERST_URL_PATH}"); then
+	if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}${REQUERST_URL_PATH}"); then
 		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed with curl error code"
 		rm -f "${RESPONSE_FILE}"
 		return 1

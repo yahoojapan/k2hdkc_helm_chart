@@ -103,22 +103,32 @@ K2HR3_APIARG=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_APIARG}" 2>/dev/null)
 CURL_INSTALLED=0
 RETRY_COUNT=30
 while [ "${CURL_INSTALLED}" -eq 0 ] && [ "${RETRY_COUNT}" -ne 0 ]; do
-
-	if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
+	if command -v curl >/dev/null 2>&1; then
+		CURL_COMMAND=$(command -v curl | tr -d '\n')
+		CURL_INSTALLED=1
+	else
 		RETRY_COUNT=$((RETRY_COUNT - 1))
 
-		if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+		if ! command -v apk >/dev/null 2>&1; then
 			echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit." 1>&2
 			exit 1
 		fi
+		APK_COMMAND=$(command -v apk | tr -d '\n')
 
 		if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
 			echo "[WARNING] ${PRGNAME} : Failed to install curl by apk(ALPINE), so retry it" 1>&2
 			SLEEP_COMMAND=$(command -v sleep | tr -d '\n')
-			${SLEEP_COMMAND} 2
+			"${SLEEP_COMMAND}" 2
+		else
+			if ! command -v curl >/dev/null 2>&1; then
+				echo "[WARNING] ${PRGNAME} : Could not install curl by apk(ALPINE), so retry it" 1>&2
+				SLEEP_COMMAND=$(command -v sleep | tr -d '\n')
+				"${SLEEP_COMMAND}" 2
+			else
+				CURL_COMMAND=$(command -v curl | tr -d '\n')
+				CURL_INSTALLED=1
+			fi
 		fi
-	else
-		CURL_INSTALLED=1
 	fi
 done
 if [ "${CURL_INSTALLED}" -eq 0 ]; then

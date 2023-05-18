@@ -115,16 +115,24 @@ K2HDKC_CONTAINER_ID=""
 #----------------------------------------------------------
 # Check curl command
 #----------------------------------------------------------
-# shellcheck disable=SC2034
-if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
-	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+if command -v curl >/dev/null 2>&1; then
+	CURL_COMMAND=$(command -v curl | tr -d '\n')
+else
+	if ! command -v apk >/dev/null 2>&1; then
 		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
 		exit 1
 	fi
+	APK_COMMAND=$(command -v apk | tr -d '\n')
+
 	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
 		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
 		exit 1
 	fi
+	if ! command -v curl >/dev/null 2>&1; then
+		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
+		exit 1
+	fi
+	CURL_COMMAND=$(command -v curl | tr -d '\n')
 fi
 
 #------------------------------------------------------------------------------
@@ -253,7 +261,7 @@ rm -f "${RESPONSE_FILE}"
 REQUEST_POST_BODY="-d '{\"auth\":{\"tenantName\":\"${K2HR3_TENANT}\"}}'"
 REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_UNSCOPED_TOKEN}\""
 
-if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
+if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
 	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
 	rm -f "${RESPONSE_FILE}"
 	exit 1
@@ -293,7 +301,7 @@ rm -f "${RESPONSE_FILE}"
 REQUEST_URLARGS="/v1/role/token/${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}"
 REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_SCOPED_TOKEN}\""
 
-if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} -X GET ${K2HR3_API_URL}${REQUEST_URLARGS}?expire=0"); then
+if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} -X GET ${K2HR3_API_URL}${REQUEST_URLARGS}?expire=0"); then
 	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with curl error code"
 	rm -f "${RESPONSE_FILE}"
 	exit 1

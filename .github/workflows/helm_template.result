@@ -517,16 +517,24 @@ data:
     #----------------------------------------------------------
     # Check curl command
     #----------------------------------------------------------
-    # shellcheck disable=SC2034
-    if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
-    	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+    if command -v curl >/dev/null 2>&1; then
+    	CURL_COMMAND=$(command -v curl | tr -d '\n')
+    else
+    	if ! command -v apk >/dev/null 2>&1; then
     		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
     		exit 1
     	fi
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    
     	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
     		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
     		exit 1
     	fi
+    	if ! command -v curl >/dev/null 2>&1; then
+    		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    	CURL_COMMAND=$(command -v curl | tr -d '\n')
     fi
     
     #------------------------------------------------------------------------------
@@ -655,7 +663,7 @@ data:
     REQUEST_POST_BODY="-d '{\"auth\":{\"tenantName\":\"${K2HR3_TENANT}\"}}'"
     REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_UNSCOPED_TOKEN}\""
     
-    if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
+    if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
     	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
     	rm -f "${RESPONSE_FILE}"
     	exit 1
@@ -695,7 +703,7 @@ data:
     REQUEST_URLARGS="/v1/role/token/${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}"
     REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_SCOPED_TOKEN}\""
     
-    if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} -X GET ${K2HR3_API_URL}${REQUEST_URLARGS}?expire=0"); then
+    if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} -X GET ${K2HR3_API_URL}${REQUEST_URLARGS}?expire=0"); then
     	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with curl error code"
     	rm -f "${RESPONSE_FILE}"
     	exit 1
@@ -984,22 +992,32 @@ data:
     CURL_INSTALLED=0
     RETRY_COUNT=30
     while [ "${CURL_INSTALLED}" -eq 0 ] && [ "${RETRY_COUNT}" -ne 0 ]; do
-    
-    	if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
+    	if command -v curl >/dev/null 2>&1; then
+    		CURL_COMMAND=$(command -v curl | tr -d '\n')
+    		CURL_INSTALLED=1
+    	else
     		RETRY_COUNT=$((RETRY_COUNT - 1))
     
-    		if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+    		if ! command -v apk >/dev/null 2>&1; then
     			echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit." 1>&2
     			exit 1
     		fi
+    		APK_COMMAND=$(command -v apk | tr -d '\n')
     
     		if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
     			echo "[WARNING] ${PRGNAME} : Failed to install curl by apk(ALPINE), so retry it" 1>&2
     			SLEEP_COMMAND=$(command -v sleep | tr -d '\n')
-    			${SLEEP_COMMAND} 2
+    			"${SLEEP_COMMAND}" 2
+    		else
+    			if ! command -v curl >/dev/null 2>&1; then
+    				echo "[WARNING] ${PRGNAME} : Could not install curl by apk(ALPINE), so retry it" 1>&2
+    				SLEEP_COMMAND=$(command -v sleep | tr -d '\n')
+    				"${SLEEP_COMMAND}" 2
+    			else
+    				CURL_COMMAND=$(command -v curl | tr -d '\n')
+    				CURL_INSTALLED=1
+    			fi
     		fi
-    	else
-    		CURL_INSTALLED=1
     	fi
     done
     if [ "${CURL_INSTALLED}" -eq 0 ]; then
@@ -1192,16 +1210,24 @@ data:
     #
     # Check curl command
     #
-    # shellcheck disable=SC2034
-    if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
-    	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
-    		prn_msg "[ERROR] This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+    if command -v curl >/dev/null 2>&1; then
+    	CURL_COMMAND=$(command -v curl | tr -d '\n')
+    else
+    	if ! command -v apk >/dev/null 2>&1; then
+    		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
     		exit 1
     	fi
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    
     	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
-    		prn_msg "[ERROR] Failed to install curl by apk(ALPINE)."
+    		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
     		exit 1
     	fi
+    	if ! command -v curl >/dev/null 2>&1; then
+    		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    	CURL_COMMAND=$(command -v curl | tr -d '\n')
     fi
     
     #
@@ -1268,7 +1294,7 @@ data:
     	# Get the resource which is configuration file template
     	#
     	# shellcheck disable=SC2086
-    	RESOURCE_STRING=$(curl -s -S -X GET ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -H "Content-Type: application/json" -H "x-auth-token: R=${K2HR3_ROLE_TOKEN}" "${K2HR3_RESOURCE_URL}/${K2HR3_YRN_RESOURCE}" 2>&1)
+    	RESOURCE_STRING=$("${CURL_COMMAND}" -s -S -X GET ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -H "Content-Type: application/json" -H "x-auth-token: R=${K2HR3_ROLE_TOKEN}" "${K2HR3_RESOURCE_URL}/${K2HR3_YRN_RESOURCE}" 2>&1)
     
     	#
     	# Check got resource result
@@ -1819,16 +1845,23 @@ data:
     #----------------------------------------------------------
     # Check openssl command
     #----------------------------------------------------------
-    # shellcheck disable=SC2034
-    if ! OPENSSL_COMMAND=$(command -v openssl | tr -d '\n'); then
-    	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+    if command -v openssl >/dev/null 2>&1; then
+    	OPENSSL_COMMAND=$(command -v openssl | tr -d '\n')
+    else
+    	if ! command -v apk >/dev/null 2>&1; then
     		echo "[ERROR] This container it not ALPINE, It does not support installations other than ALPINE, so exit."
     		exit 1
     	fi
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
     	if ! "${APK_COMMAND}" add -q --no-progress --no-cache openssl; then
     		echo "[ERROR] Failed to install openssl by apk(ALPINE)."
     		exit 1
     	fi
+    	if ! command -v openssl >/dev/null 2>&1; then
+    		echo "[ERROR] Could not install openssl by apk(ALPINE)."
+    		exit 1
+    	fi
+    	OPENSSL_COMMAND=$(command -v openssl | tr -d '\n')
     fi
     
     #----------------------------------------------------------
@@ -1927,9 +1960,9 @@ data:
     #
     # Create private key(2048 bit) without passphrase
     #
-    if ! openssl genrsa				\
-    		-out "${RAW_KEY_FILE}"	\
-    		2048					\
+    if ! "${OPENSSL_COMMAND}" genrsa	\
+    		-out "${RAW_KEY_FILE}"		\
+    		2048						\
     		>> "${LOG_FILE}" 2>&1; then
     
     	echo "[ERROR] Failed to create ${RAW_KEY_FILE} private key."
@@ -1944,7 +1977,7 @@ data:
     #
     # Create CSR file
     #
-    if ! openssl req				\
+    if ! "${OPENSSL_COMMAND}" req	\
     		-new					\
     		-key  "${RAW_KEY_FILE}"	\
     		-out  "${RAW_CSR_FILE}"	\
@@ -1958,7 +1991,7 @@ data:
     #
     # Create certificate file
     #
-    if ! openssl ca								\
+    if ! "${OPENSSL_COMMAND}" ca				\
     		-batch								\
     		-extensions	v3_svr_clt				\
     		-out		"${RAW_CERT_FILE}"		\
@@ -2137,16 +2170,24 @@ data:
     #----------------------------------------------------------
     # Check curl command
     #----------------------------------------------------------
-    # shellcheck disable=SC2034
-    if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
-    	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+    if command -v curl >/dev/null 2>&1; then
+    	CURL_COMMAND=$(command -v curl | tr -d '\n')
+    else
+    	if ! command -v apk >/dev/null 2>&1; then
     		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
     		exit 1
     	fi
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    
     	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
     		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
     		exit 1
     	fi
+    	if ! command -v curl >/dev/null 2>&1; then
+    		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    	CURL_COMMAND=$(command -v curl | tr -d '\n')
     fi
     
     #----------------------------------------------------------
@@ -2183,7 +2224,7 @@ data:
     	#	201
     	#	{"result":true,"message":"succeed","scoped":true,"token":"<token>"}
     	#
-    	if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
+    	if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
     		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
     		rm -f "${RESPONSE_FILE}"
     		return 1
@@ -2241,7 +2282,7 @@ data:
     
     	rm -f "${RESPONSE_FILE}"
     
-    	if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}${REQUERST_URL_PATH}"); then
+    	if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}${REQUERST_URL_PATH}"); then
     		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed with curl error code"
     		rm -f "${RESPONSE_FILE}"
     		return 1
@@ -2607,16 +2648,24 @@ data:
     #----------------------------------------------------------
     # Check curl command
     #----------------------------------------------------------
-    # shellcheck disable=SC2034
-    if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
-    	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+    if command -v curl >/dev/null 2>&1; then
+    	CURL_COMMAND=$(command -v curl | tr -d '\n')
+    else
+    	if ! command -v apk >/dev/null 2>&1; then
     		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
     		exit 1
     	fi
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    
     	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
     		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
     		exit 1
     	fi
+    	if ! command -v curl >/dev/null 2>&1; then
+    		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    	CURL_COMMAND=$(command -v curl | tr -d '\n')
     fi
     
     #----------------------------------------------------------
@@ -2653,7 +2702,7 @@ data:
     	#	201
     	#	{"result":true,"message":"succeed","scoped":true,"token":"<token>"}
     	#
-    	if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
+    	if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
     		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
     		rm -f "${RESPONSE_FILE}"
     		return 1
@@ -2704,7 +2753,7 @@ data:
     
     	rm -f "${RESPONSE_FILE}"
     
-    	if ! REQ_EXIT_CODE=$(/bin/sh -c "curl ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X DELETE ${K2HR3_API_URL}${REQUERST_URL_PATH}"); then
+    	if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X DELETE ${K2HR3_API_URL}${REQUERST_URL_PATH}"); then
     		echo "[ERROR] ${PRGNAME} : Delete request(${REQUERST_URL_PATH}) is failed with curl error code"
     		rm -f "${RESPONSE_FILE}"
     		return 1
@@ -2950,14 +2999,19 @@ data:
     #----------------------------------------------------------
     # Check curl command and install
     #----------------------------------------------------------
-    # shellcheck disable=SC2034
-    if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
-    	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+    if ! command -v curl >/dev/null 2>&1; then
+    	if ! command -v apk >/dev/null 2>&1; then
     		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
     		exit 1
     	fi
+    	APK_COMMAND=$(command -v apk | tr -d '\n')
+    
     	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
     		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
+    		exit 1
+    	fi
+    	if ! command -v curl >/dev/null 2>&1; then
+    		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
     		exit 1
     	fi
     fi
