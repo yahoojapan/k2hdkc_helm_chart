@@ -105,16 +105,24 @@ prn_msg()
 #
 # Check curl command
 #
-# shellcheck disable=SC2034
-if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
-	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
-		prn_msg "[ERROR] This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+if command -v curl >/dev/null 2>&1; then
+	CURL_COMMAND=$(command -v curl | tr -d '\n')
+else
+	if ! command -v apk >/dev/null 2>&1; then
+		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
 		exit 1
 	fi
+	APK_COMMAND=$(command -v apk | tr -d '\n')
+
 	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
-		prn_msg "[ERROR] Failed to install curl by apk(ALPINE)."
+		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
 		exit 1
 	fi
+	if ! command -v curl >/dev/null 2>&1; then
+		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
+		exit 1
+	fi
+	CURL_COMMAND=$(command -v curl | tr -d '\n')
 fi
 
 #
@@ -181,7 +189,7 @@ while [ "${FILE_NOT_UPDATED_YET}" -le 1 ]; do
 	# Get the resource which is configuration file template
 	#
 	# shellcheck disable=SC2086
-	RESOURCE_STRING=$(curl -s -S -X GET ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -H "Content-Type: application/json" -H "x-auth-token: R=${K2HR3_ROLE_TOKEN}" "${K2HR3_RESOURCE_URL}/${K2HR3_YRN_RESOURCE}" 2>&1)
+	RESOURCE_STRING=$("${CURL_COMMAND}" -s -S -X GET ${K2HR3_CA_CERT_OPTION} ${K2HR3_CA_CERT_OPTION_VALUE} -H "Content-Type: application/json" -H "x-auth-token: R=${K2HR3_ROLE_TOKEN}" "${K2HR3_RESOURCE_URL}/${K2HR3_YRN_RESOURCE}" 2>&1)
 
 	#
 	# Check got resource result

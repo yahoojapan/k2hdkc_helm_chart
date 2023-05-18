@@ -44,14 +44,19 @@ fi
 #----------------------------------------------------------
 # Check curl command and install
 #----------------------------------------------------------
-# shellcheck disable=SC2034
-if ! CURL_COMMAND=$(command -v curl | tr -d '\n'); then
-	if ! APK_COMMAND=$(command -v apk | tr -d '\n'); then
+if ! command -v curl >/dev/null 2>&1; then
+	if ! command -v apk >/dev/null 2>&1; then
 		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
 		exit 1
 	fi
+	APK_COMMAND=$(command -v apk | tr -d '\n')
+
 	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
 		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
+		exit 1
+	fi
+	if ! command -v curl >/dev/null 2>&1; then
+		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
 		exit 1
 	fi
 fi
