@@ -56,6 +56,9 @@ antpickax:
 #						This value allows empty. If empty, the release
 #						name on the helm command line is used.
 #						( ".Release.Name" )
+#	startManual			Specify a flag for debugging. Setting this
+#						flag to true allows the k2hdkc processes to be
+#						started manually.
 #	baseDomain			Specify the domain name of kubernetes. This
 #						value is usually empty. If empty, k8s.domain
 #						will be used.
@@ -86,8 +89,16 @@ antpickax:
 #							      ....
 #							      ....
 #
+#	env.httpProxy	Specifies HTTP PROXY environment for K2HDKC cluster.
+#					If this value is empty, it will be set empty.
+#	env.httpsProxy	Specifies HTTPS PROXY environment for K2HDKC cluster.
+#					If this value is empty, it will be set empty.
+#	env.noProxy		Specifies NO PROXY environment for K2HDKC cluster.
+#					If this value is empty, it will be set empty.
+#
 dbaas:
   clusterName: ""
+  startManual: false
   baseDomain: ""
   server:
     count: 2
@@ -101,6 +112,10 @@ dbaas:
     args: []
     files: []
     expandFiles: []
+  env:
+    httpProxy: ""
+    httpsProxy: ""
+    noProxy: ""
 
 #---------------------------------------------------------
 # Variables for using K2HR3 Cluster
@@ -148,17 +163,33 @@ mountPoint:
 #---------------------------------------------------------
 # Images
 #
-#	dkc/chmpx			image type(k2hdkc/chmpx)
+#	dkc/chmpx/init			image type(k2hdkc/chmpx/alpine)
+#		fullImageName	Specify full image name("organaization/image-name:tag")
 #		organization	Specify organaization name for images(default is "antpickax")
+#		imageName		Specify image name(default is "k2hdkc", "chmpx", or "alpine")
 #		version			Specify image version(default is set automatically)
+#
+# [NOTE]
+# "organization" and "imageName" and "version" values are valid only if "fullImageName" is empty.
 #
 images:
   dkc:
+    fullImageName: ""
     organization: ""
+    imageName: ""
     version: ""
   chmpx:
+    fullImageName: ""
     organization: ""
+    imageName: ""
     version: ""
+  init:
+    fullImageName: ""
+    organization: ""
+    imageName: ""
+    version: ""
+  default:
+    organization: ""
 
 #---------------------------------------------------------
 # Kubernetes

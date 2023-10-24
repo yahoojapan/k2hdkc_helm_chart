@@ -86,18 +86,17 @@ shift
 #
 # Hostnames / IP addresses
 #
-# LOCAL_DOMAIN			ex. default.svc.cluster.local
 # LOCAL_HOST_DOMAIN		ex. svc.default.svc.cluster.local
 # FULL_HOST_NAME		ex. pod.svc.default.svc.cluster.local
 # SHORT_HOST_NAME		ex. pod
 # NODOMAIN_HOST_NAME	ex. pod.svc
 #
-LOCAL_DOMAIN="${CHMPX_POD_NAMESPACE}.${CHMPX_DEFAULT_DOMAIN}"
 LOCAL_HOST_DOMAIN=$(hostname -d)
 LOCAL_HOST_IP=$(hostname -i)
 FULL_HOST_NAME=$(hostname -f)
 SHORT_HOST_NAME=$(hostname -s)
-NODOMAIN_HOST_NAME=$(echo "${FULL_HOST_NAME}" | sed -e "s/\.${LOCAL_DOMAIN}//g")
+SED_PARAM_LOCAL_HOST_DOMAIN=$(echo "${LOCAL_HOST_DOMAIN}" | sed -e 's/\./\\\./g')
+NODOMAIN_HOST_NAME=$(echo "${FULL_HOST_NAME}" | sed -e "s/\.${SED_PARAM_LOCAL_HOST_DOMAIN}//g")
 
 #
 # Certificate directories / files
@@ -178,24 +177,62 @@ LOG_FILE="${CERT_WORK_DIR}/${PRGNAME}.log"
 #----------------------------------------------------------
 # Check openssl command
 #----------------------------------------------------------
-if command -v openssl >/dev/null 2>&1; then
-	OPENSSL_COMMAND=$(command -v openssl | tr -d '\n')
-else
-	if ! command -v apk >/dev/null 2>&1; then
-		echo "[ERROR] This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+if ! command -v openssl >/dev/null 2>&1; then
+	if [ ! -f /etc/os-release ]; then
+		echo "[ERROR] Not found /etc/os-release file."
 		exit 1
 	fi
-	APK_COMMAND=$(command -v apk | tr -d '\n')
-	if ! "${APK_COMMAND}" add -q --no-progress --no-cache openssl; then
-		echo "[ERROR] Failed to install openssl by apk(ALPINE)."
+	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+
+	if echo "${OS_NAME}" | grep -q -i "alpine"; then
+		if ! apk update -q --no-progress >/dev/null 2>&1 || ! apk add -q --no-progress --no-cache openssl >/dev/null 2>&1; then
+			echo "[ERROR] Failed to install openssl."
+			exit 1
+		fi
+	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
+		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
+			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
+				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
+
+				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+				fi
+				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+				fi
+				if [ ! -d /etc/apt/apt.conf.d ]; then
+					mkdir -p /etc/apt/apt.conf.d
+				fi
+				{
+					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+			fi
+		fi
+		DEBIAN_FRONTEND=noninteractive
+		export DEBIAN_FRONTEND
+
+		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y openssl >/dev/null 2>&1; then
+			echo "[ERROR] Failed to install openssl."
+			exit 1
+		fi
+	elif echo "${OS_NAME}" | grep -q -i "centos"; then
+		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y openssl >/dev/null 2>&1; then
+			echo "[ERROR] Failed to install openssl."
+			exit 1
+		fi
+	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
+		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y openssl >/dev/null 2>&1; then
+			echo "[ERROR] Failed to install openssl."
+			exit 1
+		fi
+	else
+		echo "[ERROR] Unknown OS type(${OS_NAME})."
 		exit 1
 	fi
-	if ! command -v openssl >/dev/null 2>&1; then
-		echo "[ERROR] Could not install openssl by apk(ALPINE)."
-		exit 1
-	fi
-	OPENSSL_COMMAND=$(command -v openssl | tr -d '\n')
 fi
+OPENSSL_COMMAND=$(command -v openssl 2>/dev/null)
 
 #----------------------------------------------------------
 # Create openssl.cnf 
@@ -218,23 +255,40 @@ fi
 #	stateOrProvinceName = optional					in [ policy_match ] section
 #	organizationName	= optional					in [ policy_match ] section
 #
-if ! sed -e 's/\[[[:space:]]*CA_default[[:space:]]*\]/\[ CA_default ]\nunique_subject = no\nemail_in_dn = no\nrand_serial = no/g' \
-		-e 's/\[[[:space:]]*v3_ca[[:space:]]*\]/\[ v3_ca ]\nkeyUsage = cRLSign, keyCertSign/g'						\
-		-e "s#^dir[[:space:]]*=[[:space:]]*.*CA.*#dir = ${CERT_WORK_DIR}#g"											\
-		-e 's/^[[:space:]]*countryName[[:space:]]*=[[:space:]]*match.*$/countryName = optional/g'					\
-		-e 's/^[[:space:]]*stateOrProvinceName[[:space:]]*=[[:space:]]*match.*$/stateOrProvinceName = optional/g'	\
-		-e 's/^[[:space:]]*organizationName[[:space:]]*=[[:space:]]*match.*$/organizationName = optional/g'			\
-		"${ORG_OPENSSL_CNF}"																						\
-		> "${CUSTOM_OPENSSL_CNF}"; then
+while IFS= read -r ONE_LINE; do
+	if [ -z "${ONE_LINE}" ]; then
+		echo ""
 
-	echo "[ERROR] Could not create file ${CUSTOM_OPENSSL_CNF}"
-	exit 1
-fi
+	elif echo "${ONE_LINE}" | grep -q '[[[:space:]]*CA_default[[:space:]]*]'; then
+		echo '[ CA_default ]'
+		echo 'unique_subject = no'
+		echo 'email_in_dn = no'
+		echo 'rand_serial = no'
 
+	elif echo "${ONE_LINE}" | grep -q '[[[:space:]]*v3_ca[[:space:]]*]'; then
+		echo '[ v3_ca ]'
+		echo 'keyUsage = cRLSign, keyCertSign'
+
+	elif echo "${ONE_LINE}" | grep -q '^dir[[:space:]]*=[[:space:]]*.*CA.*'; then
+		echo "dir = ${CERT_WORK_DIR}"
+
+	elif echo "${ONE_LINE}" | grep -q '^[[:space:]]*countryName[[:space:]]*=[[:space:]]*match.*$'; then
+		echo 'countryName = optional'
+
+	elif echo "${ONE_LINE}" | grep -q '^[[:space:]]*stateOrProvinceName[[:space:]]*=[[:space:]]*match.*$'; then
+		echo 'stateOrProvinceName = optional'
+
+	elif echo "${ONE_LINE}" | grep -q '^[[:space:]]*organizationName[[:space:]]*=[[:space:]]*match.*$'; then
+		echo 'organizationName = optional'
+
+	else
+		echo "${ONE_LINE}"
+	fi
+done < "${ORG_OPENSSL_CNF}" > "${CUSTOM_OPENSSL_CNF}"
 
 #
-# Add section to  openssl.cnf
-#	[ v3_svr_clt ]									add section
+# Add section to openssl.cnf
+#	[ v3_svr_clt ]
 #
 SAN_SETTINGS=""
 if [ -n "${FULL_HOST_NAME}" ]; then
@@ -255,10 +309,12 @@ if [ -n "${SHORT_HOST_NAME}" ]; then
 	fi
 fi
 if [ -n "${NODOMAIN_HOST_NAME}" ]; then
-	if [ -z "${SAN_SETTINGS}" ]; then
-		SAN_SETTINGS="DNS:${NODOMAIN_HOST_NAME}"
-	else
-		SAN_SETTINGS="${SAN_SETTINGS}, DNS:${NODOMAIN_HOST_NAME}"
+	if [ -z "${SHORT_HOST_NAME}" ] || [ "${SHORT_HOST_NAME}" != "${NODOMAIN_HOST_NAME}" ]; then
+		if [ -z "${SAN_SETTINGS}" ]; then
+			SAN_SETTINGS="DNS:${NODOMAIN_HOST_NAME}"
+		else
+			SAN_SETTINGS="${SAN_SETTINGS}, DNS:${NODOMAIN_HOST_NAME}"
+		fi
 	fi
 fi
 if [ -n "${LOCAL_HOST_IP}" ]; then
@@ -341,19 +397,17 @@ fi
 #----------------------------------------------------------
 # Set files to /etc/antpickax
 #----------------------------------------------------------
-COPY_RESULT=0
-cp -p "${ORG_CA_CERT_FILE}"	"${CA_CERT_FILE}"		|| COPY_RESULT=1
-cp -p "${RAW_CERT_FILE}"	"${SERVER_CERT_FILE}"	|| COPY_RESULT=1
-cp -p "${RAW_KEY_FILE}"		"${SERVER_KEY_FILE}"	|| COPY_RESULT=1
-cp -p "${RAW_CERT_FILE}"	"${CLIENT_CERT_FILE}"	|| COPY_RESULT=1
-cp -p "${RAW_KEY_FILE}"		"${CLIENT_KEY_FILE}"	|| COPY_RESULT=1
-chmod 0444 "${CA_CERT_FILE}"						|| COPY_RESULT=1
-chmod 0444 "${SERVER_CERT_FILE}"					|| COPY_RESULT=1
-chmod 0400 "${SERVER_KEY_FILE}"						|| COPY_RESULT=1
-chmod 0444 "${CLIENT_CERT_FILE}"					|| COPY_RESULT=1
-chmod 0400 "${CLIENT_KEY_FILE}"						|| COPY_RESULT=1
+if	! cp -p "${ORG_CA_CERT_FILE}"	"${CA_CERT_FILE}"		||
+	! cp -p "${RAW_CERT_FILE}"		"${SERVER_CERT_FILE}"	||
+	! cp -p "${RAW_KEY_FILE}"		"${SERVER_KEY_FILE}"	||
+	! cp -p "${RAW_CERT_FILE}"		"${CLIENT_CERT_FILE}"	||
+	! cp -p "${RAW_KEY_FILE}"		"${CLIENT_KEY_FILE}"	||
+	! chmod 0444 "${CA_CERT_FILE}"							||
+	! chmod 0444 "${SERVER_CERT_FILE}"						||
+	! chmod 0400 "${SERVER_KEY_FILE}"						||
+	! chmod 0444 "${CLIENT_CERT_FILE}"						||
+	! chmod 0400 "${CLIENT_KEY_FILE}"; then
 
-if [ "${COPY_RESULT}" -ne 0 ]; then
 	echo "[ERROR] Failed to copy certificate files."
 	exit 1
 fi

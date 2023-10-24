@@ -1,4 +1,3 @@
-#!/bin/sh
 #
 # K2HDKC DBaaS Helm Chart
 #
@@ -86,10 +85,30 @@ questions:
   min: 1024
   max: 49151
 
+- variable: images.dkc.fullImageName
+  default: ""
+  label: "Image organization and name and version for K2HDKC"
+  description: "Specify the organaization and name and version for K2HDKC image, default is empty string in which case \"antpickax/k2hdkc:X.Y.Z\" will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 63
+
 - variable: images.dkc.organization
   default: ""
   label: "Image Organaization name for K2HDKC"
   description: "Specify the organaization for the K2HDKC image, default is empty string in which case \"antpickax\" will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 63
+
+- variable: images.dkc.imageName
+  default: ""
+  label: "Image name for K2HDKC"
+  description: "Specify the image name for K2HDKC image, default is empty string in which case \"k2hdkc\" will be used."
   type: string
   required: false
   group: "K2HDKC Server"
@@ -106,6 +125,16 @@ questions:
   min_length: 0
   max_length: 31
 
+- variable: images.chmpx.fullImageName
+  default: ""
+  label: "Image organization and name and version for CHMPX"
+  description: "Specify the organaization and name and version for CHMPX image, default is empty string in which case \"antpickax/chmpx:X.Y.Z\" will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 63
+
 - variable: images.chmpx.organization
   default: ""
   label: "Image Organaization name for CHMPX"
@@ -116,10 +145,60 @@ questions:
   min_length: 0
   max_length: 63
 
+- variable: images.chmpx.imageName
+  default: ""
+  label: "Image name for CHMPX"
+  description: "Specify the image name for CHMPX image, default is empty string in which case \"chmpx\" will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 63
+
 - variable: images.chmpx.version
   default: ""
   label: "Image version for CHMPX"
   description: "Specify the version for CHMPX image, default is empty string in which case one of version number will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 31
+
+- variable: images.init.fullImageName
+  default: ""
+  label: "Image organization and name and version for initialization/setup"
+  description: "Specify the organaization and name and version for initialization/setup image, default is empty string in which case \"alpine:X.Y.Z\" will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 63
+
+- variable: images.init.organization
+  default: ""
+  label: "Image Organaization name for initialization/setup"
+  description: "Specify the organaization for initialization/setup image, default is empty string in which case \"(empty)\" will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 63
+
+- variable: images.init.imageName
+  default: ""
+  label: "Image name for initialization/setup"
+  description: "Specify the image name for initialization/setup image, default is empty string in which case \"alpine\" will be used."
+  type: string
+  required: false
+  group: "K2HDKC Server"
+  min_length: 0
+  max_length: 63
+
+- variable: images.init.version
+  default: ""
+  label: "Image version for initialization/setup"
+  description: "Specify the version for initialization/setup image, default is empty string in which case one of version number will be used."
   type: string
   required: false
   group: "K2HDKC Server"
@@ -152,7 +231,7 @@ questions:
 - variable: dbaas.slave.image
   default: ""
   label: "Image for K2HDKC Client(Slave)"
-  description: "Specifies the custom image for K2HDKC client(slave) container. Prepare an image that contains the program you want to run as a K2HDKC client and specify it to this value. This custom image run on a container for the K2HDKC client(slave), so you must specify an image that contains CHMPX. If empty string, \"antpickax/k2hdkc:1.0.3\" is set as default."
+  description: "Specifies the custom image for K2HDKC client(slave) container. Prepare an image that contains the program you want to run as a K2HDKC client and specify it to this value. This custom image run on a container for the K2HDKC client(slave), so you must specify an image that contains CHMPX. If empty string, \"antpickax/k2hdkc:x.y.z\" is set as default."
   type: string
   required: false
   group: "K2HDKC Client"
@@ -176,6 +255,39 @@ questions:
   type: string
   required: false
   group: "K2HDKC Client"
+  min_length: 0
+  max_length: 2047
+
+#
+# PROXY Environments
+#
+- variable: dbaas.env.httpProxy
+  default: ""
+  label: "HTTP PROXY environment"
+  description: "Specify the HTTP PROXY for K2HDKC Cluster, default is empty. Specify PROXY host and port(ex. http://proxy.local:8080) when connecting to an external network."
+  type: string
+  required: false
+  group: "PROXY Environments"
+  min_length: 0
+  max_length: 255
+
+- variable: dbaas.env.httpsProxy
+  default: ""
+  label: "HTTPS PROXY environment"
+  description: "Specify the HTTPS PROXY for K2HDKC Cluster, default is empty. Specify PROXY host and port(ex. http://proxy.local:8080) when connecting to an external network."
+  type: string
+  required: false
+  group: "PROXY Environments"
+  min_length: 0
+  max_length: 255
+
+- variable: dbaas.env.noProxy
+  default: ""
+  label: "NO PROXY environment"
+  description: "Specify the NO PROXY for K2HDKC Cluster, default is empty. Specify hosts and IP addresses(ex. internal,127.1.1.1)."
+  type: string
+  required: false
+  group: "PROXY Environments"
   min_length: 0
   max_length: 2047
 

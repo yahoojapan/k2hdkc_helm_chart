@@ -64,8 +64,20 @@ spec:
 
       containers:
       - name: setup-k2hr3-{{ include "k2hdkc.clusterName" . }}-job
-        image: alpine:3.13.5
+        image: {{ include "images.initImage" . }}
         env:
+          - name: HTTP_PROXY
+            value: "{{ include "env.init.httpProxy" . }}"
+          - name: HTTPS_PROXY
+            value: "{{ include "env.init.httpsProxy" . }}"
+          - name: NO_PROXY
+            value: "{{ include "env.init.noProxy" . }}"
+          - name: http_proxy
+            value: "{{ include "env.init.httpProxy" . }}"
+          - name: https_proxy
+            value: "{{ include "env.init.httpsProxy" . }}"
+          - name: DEBIAN_FRONTEND
+            value: "noninteractive"
           - name: ANTPICKAX_ETC_DIR
             value: "{{ .Values.antpickax.configDir }}"
           - name: K2HR3_API_URL
