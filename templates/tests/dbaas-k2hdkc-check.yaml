@@ -65,8 +65,20 @@ spec:
 
   initContainers:
     - name: chkinit-{{ include "k2hdkc.clusterName" . }}
-      image: alpine:3.13.5
+      image: {{ include "images.initImage" . }}
       env:
+        - name: HTTP_PROXY
+          value: "{{ include "env.init.httpProxy" . }}"
+        - name: HTTPS_PROXY
+          value: "{{ include "env.init.httpsProxy" . }}"
+        - name: NO_PROXY
+          value: "{{ include "env.init.noProxy" . }}"
+        - name: http_proxy
+          value: "{{ include "env.init.httpProxy" . }}"
+        - name: https_proxy
+          value: "{{ include "env.init.httpsProxy" . }}"
+        - name: DEBIAN_FRONTEND
+          value: "noninteractive"
         - name: ANTPICKAX_ETC_DIR
           value: "{{ .Values.antpickax.configDir }}"
         - name: K2HR3_API_URL
@@ -133,8 +145,20 @@ spec:
 
   containers:
     - name: chkk2hdkc-{{ include "k2hdkc.clusterName" . }}
-      image: {{ include "images.k2hdkcOrg" . }}/k2hdkc:{{ include "images.k2hdkcVer" . }}
+      image: {{ include "images.k2hdkcImage" . }}
       env:
+        - name: HTTP_PROXY
+          value: "{{ include "env.dkc.httpProxy" . }}"
+        - name: HTTPS_PROXY
+          value: "{{ include "env.dkc.httpsProxy" . }}"
+        - name: NO_PROXY
+          value: "{{ include "env.dkc.noProxy" . }}"
+        - name: http_proxy
+          value: "{{ include "env.dkc.httpProxy" . }}"
+        - name: https_proxy
+          value: "{{ include "env.dkc.httpsProxy" . }}"
+        - name: DEBIAN_FRONTEND
+          value: "noninteractive"
         - name: K2HDKC_CLUSTER_NAME
           value: "{{ include "k2hdkc.clusterName" . }}"
         - name: K2HDKC_SERVER_COUNT

@@ -139,8 +139,20 @@ spec:
 
       initContainers:
         - name: svrinit-{{ include "k2hdkc.clusterName" . }}
-          image: alpine:3.13.5
+          image: {{ include "images.initImage" . }}
           env:
+            - name: HTTP_PROXY
+              value: "{{ include "env.init.httpProxy" . }}"
+            - name: HTTPS_PROXY
+              value: "{{ include "env.init.httpsProxy" . }}"
+            - name: NO_PROXY
+              value: "{{ include "env.init.noProxy" . }}"
+            - name: http_proxy
+              value: "{{ include "env.init.httpProxy" . }}"
+            - name: https_proxy
+              value: "{{ include "env.init.httpsProxy" . }}"
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
             - name: ANTPICKAX_ETC_DIR
               value: "{{ .Values.antpickax.configDir }}"
             - name: K2HR3_API_URL
@@ -207,7 +219,20 @@ spec:
 
       containers:
         - name: svrupdate-{{ include "k2hdkc.clusterName" . }}
-          image: alpine:3.13.5
+          image: {{ include "images.initImage" . }}
+          env:
+            - name: HTTP_PROXY
+              value: "{{ include "env.init.httpProxy" . }}"
+            - name: HTTPS_PROXY
+              value: "{{ include "env.init.httpsProxy" . }}"
+            - name: NO_PROXY
+              value: "{{ include "env.init.noProxy" . }}"
+            - name: http_proxy
+              value: "{{ include "env.init.httpProxy" . }}"
+            - name: https_proxy
+              value: "{{ include "env.init.httpsProxy" . }}"
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
           volumeMounts:
             - mountPath: {{ .Values.antpickax.configDir }}
               name: antpickax-etc-volume
@@ -225,7 +250,22 @@ spec:
                 command: ["/bin/sh", "{{ .Values.mountPoint.configMap }}/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: svrchmpx-{{ include "k2hdkc.clusterName" . }}
-          image: {{ include "images.chmpxOrg" . }}/chmpx:{{ include "images.chmpxVer" . }}
+          image: {{ include "images.chmpxImage" . }}
+          env:
+            - name: HTTP_PROXY
+              value: "{{ include "env.chmpx.httpProxy" . }}"
+            - name: HTTPS_PROXY
+              value: "{{ include "env.chmpx.httpsProxy" . }}"
+            - name: NO_PROXY
+              value: "{{ include "env.chmpx.noProxy" . }}"
+            - name: http_proxy
+              value: "{{ include "env.chmpx.httpProxy" . }}"
+            - name: https_proxy
+              value: "{{ include "env.chmpx.httpsProxy" . }}"
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
+            - name: K2HDKC_MANUAL_START
+              value: "{{ .Values.dbaas.startManual }}"
           volumeMounts:
             - mountPath: {{ .Values.antpickax.configDir }}
               name: antpickax-etc-volume
@@ -240,7 +280,22 @@ spec:
           args: ["{{ .Values.mountPoint.configMap }}/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: svrk2hdkc-{{ include "k2hdkc.clusterName" . }}
-          image: {{ include "images.k2hdkcOrg" . }}/k2hdkc:{{ include "images.k2hdkcVer" . }}
+          image: {{ include "images.k2hdkcImage" . }}
+          env:
+            - name: HTTP_PROXY
+              value: "{{ include "env.dkc.httpProxy" . }}"
+            - name: HTTPS_PROXY
+              value: "{{ include "env.dkc.httpsProxy" . }}"
+            - name: NO_PROXY
+              value: "{{ include "env.dkc.noProxy" . }}"
+            - name: http_proxy
+              value: "{{ include "env.dkc.httpProxy" . }}"
+            - name: https_proxy
+              value: "{{ include "env.dkc.httpsProxy" . }}"
+            - name: DEBIAN_FRONTEND
+              value: "noninteractive"
+            - name: K2HDKC_MANUAL_START
+              value: "{{ .Values.dbaas.startManual }}"
           volumeMounts:
             - mountPath: {{ .Values.antpickax.configDir }}
               name: antpickax-etc-volume

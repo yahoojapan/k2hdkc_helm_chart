@@ -66,6 +66,10 @@
           "description": "[optional] Specify a cluster name for K2HDKC, default is empty. If not set, a name is Release name(.Release.Name).",
           "type": "string"
         },
+        "startManual": {
+          "description": "[optional] Specifies whether to boot the k2hdkc processes manually. This is a flag for debugging.",
+          "type": "boolean"
+        },
         "baseDomain": {
           "description": "[optional] Specifies the base domain name for the k2hr3 cluster. The default is empty, if empty k8s.domain is used.",
           "type": "string"
@@ -156,10 +160,38 @@
             "count",
             "ctlport"
           ]
+        },
+
+        "env": {
+          "description": "[optional] The environments for the K2HDKC cluster.",
+          "type": "object",
+          "properties": {
+            "httpProxy": {
+              "description": "[optional] Specify the HTTP PROXY environment(ex. http://proxy.local:8080) for the K2HDKC cluster, default is empty.",
+              "type": "string",
+              "maxLength": 255
+            },
+            "httpsProxy": {
+              "description": "[optional] Specify the HTTPS PROXY environment(ex. http://proxy.local:8080) for the K2HDKC cluster, default is empty.",
+              "type": "string",
+              "maxLength": 255
+            },
+            "noProxy": {
+              "description": "[optional] Specify the NO PROXY environment(ex. internal,127.1.1.1) for the K2HDKC cluster, default is empty.",
+              "type": "string",
+              "maxLength": 2047
+            }
+          },
+          "required": [
+            "httpProxy",
+            "httpsProxy",
+            "noProxy"
+          ]
         }
       },
       "required": [
         "clusterName",
+        "startManual",
         "baseDomain",
         "server",
         "slave"
@@ -220,43 +252,75 @@
           "description": "[optional] Specify the K2HDKC image organization and version.",
           "type": "object",
           "properties": {
+            "fullImageName": {
+              "description": "[optional] Specify the image full name(organaization/name/version) for K2HDKC image, default is empty in which case antpickax will be used.",
+              "type": "string"
+            },
             "organization": {
-              "description": "[optional] Specify the organaization for the K2HDKC image, default is empty in which case antpickax will be used.",
+              "description": "[optional] Specify the organaization for the K2HDKC image, default is empty. (valid only if fullImageName is empty)",
+              "type": "string"
+            },
+            "imageName": {
+              "description": "[optional] Specify the image name for K2HDKC image, default is empty. (valid only if fullImageName is empty)",
               "type": "string"
             },
             "version": {
-              "description": "[optional] Specify the version for the K2HDKC image, default is empty in which case one of version number will be used.",
+              "description": "[optional] Specify the version for the K2HDKC image, default is empty. (valid only if fullImageName is empty)",
               "type": "string"
             }
-          },
-          "required": [
-            "organization",
-            "version"
-          ]
+          }
         },
 
         "chmpx": {
           "description": "[optional] Specify the CHMPX image organization and version.",
           "type": "object",
           "properties": {
+            "fullImageName": {
+              "description": "[optional] Specify the image full name(organaization/name/version) for CHMPX image, default is empty in which case antpickax will be used.",
+              "type": "string"
+            },
             "organization": {
-              "description": "[optional] Specify the organaization for the CHMPX image, default is empty in which case antpickax will be used.",
+              "description": "[optional] Specify the organaization for the CHMPX image, default is empty. (valid only if fullImageName is empty)",
+              "type": "string"
+            },
+            "imageName": {
+              "description": "[optional] Specify the image name for CHMPX image, default is empty. (valid only if fullImageName is empty)",
               "type": "string"
             },
             "version": {
-              "description": "[optional] Specify the version for the CHMPX image, default is empty in which case one of version number will be used.",
+              "description": "[optional] Specify the version for the CHMPX image, default is empty. (valid only if fullImageName is empty)",
               "type": "string"
             }
-          },
-          "required": [
-            "organization",
-            "version"
-          ]
+          }
+        },
+
+        "init": {
+          "description": "[optional] Specify the organization and name and version of the container initialization/setup image.",
+          "type": "object",
+          "properties": {
+            "fullImageName": {
+              "description": "[optional] Specify the image full name(organaization/name/version) for the container initialization/setup image, default is empty.",
+              "type": "string"
+            },
+            "organization": {
+              "description": "[optional] Specify the organization of the container initialization/setup image, default is empty. (valid only if fullImageName is empty)",
+              "type": "string"
+            },
+            "imageName": {
+              "description": "[optional] Specify the image name for the container initialization/setup image, default is empty. (valid only if fullImageName is empty)",
+              "type": "string"
+            },
+            "version": {
+              "description": "[optional] Specify the version of the container initialization/setup image, default is empty. (valid only if fullImageName is empty)",
+              "type": "string"
+            }
+          }
         }
       },
       "required": [
         "dkc",
-        "chmpx"
+        "chmpx",
+        "init"
       ]
     },
 

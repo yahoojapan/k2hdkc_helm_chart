@@ -45,18 +45,57 @@ fi
 # Check curl command and install
 #----------------------------------------------------------
 if ! command -v curl >/dev/null 2>&1; then
-	if ! command -v apk >/dev/null 2>&1; then
-		echo "[ERROR] ${PRGNAME} : This container it not ALPINE, It does not support installations other than ALPINE, so exit."
+	if [ ! -f /etc/os-release ]; then
+		echo "[ERROR] Not found /etc/os-release file."
 		exit 1
 	fi
-	APK_COMMAND=$(command -v apk | tr -d '\n')
+	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
 
-	if ! "${APK_COMMAND}" add -q --no-progress --no-cache curl; then
-		echo "[ERROR] ${PRGNAME} : Failed to install curl by apk(ALPINE)."
-		exit 1
-	fi
-	if ! command -v curl >/dev/null 2>&1; then
-		echo "[ERROR] ${PRGNAME} : Could not install curl by apk(ALPINE)."
+	if echo "${OS_NAME}" | grep -q -i "alpine"; then
+		if ! apk update -q --no-progress >/dev/null 2>&1 || ! apk add -q --no-progress --no-cache curl >/dev/null 2>&1; then
+			echo "[ERROR] Failed to install curl."
+			exit 1
+		fi
+	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
+		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
+			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
+				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
+
+				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+				fi
+				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+				fi
+				if [ ! -d /etc/apt/apt.conf.d ]; then
+					mkdir -p /etc/apt/apt.conf.d
+				fi
+				{
+					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+			fi
+		fi
+		DEBIAN_FRONTEND=noninteractive
+		export DEBIAN_FRONTEND
+
+		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y curl >/dev/null 2>&1; then
+			echo "[ERROR] Failed to install curl."
+			exit 1
+		fi
+	elif echo "${OS_NAME}" | grep -q -i "centos"; then
+		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y curl >/dev/null 2>&1; then
+			echo "[ERROR] Failed to install curl."
+			exit 1
+		fi
+	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
+		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
+			echo "[ERROR] Failed to install curl."
+			exit 1
+		fi
+	else
+		echo "[ERROR] Unknown OS type(${OS_NAME})."
 		exit 1
 	fi
 fi
@@ -155,7 +194,11 @@ cleanup_all()
 	# Just in case, ini update process will also stop.
 	#
 	kill -HUP "${INI_UPDATE_PROCID}" "${CHMPX_PROCID}" >/dev/null 2>&1
+	sleep 1
+
 	kill -KILL "${INI_UPDATE_PROCID}" "${CHMPX_PROCID}" >/dev/null 2>&1
+	sleep 1
+
 	rm -f "${COMMAND_FILE}"
 	rm -f "${EXPECTED_FILE}"
 	rm -f "${RESULT_FILE}"
@@ -164,7 +207,21 @@ cleanup_all()
 #
 # Wait for update chmpx server connection
 #
-sleep 60
+if [ -z "${CHMPX_MODE}" ] || [ "${CHMPX_MODE}" = "slave" ] || [ "${CHMPX_MODE}" = "SLAVE" ]; then
+	CHMPXSTATUS_RING_PARAM="slave"
+else
+	CHMPXSTATUS_RING_PARAM="servicein"
+fi
+if ! CHMPXSTATUS_RESULT=$(chmpxstatus -conf "${INI_FILE_PATH}" -wait -live up -ring "${CHMPXSTATUS_RING_PARAM}" -self -nosuspend 2>/dev/null); then
+	echo "[ERROR] ${PRGNAME} : Failed to wait chmpx up."
+	cleanup_all
+	exit 1
+fi
+if [ "${CHMPXSTATUS_RESULT}" != "SUCCEED" ]; then
+	echo "[ERROR] ${PRGNAME} : Got ${CHMPXSTATUS_RESULT} error by waiting chmpx up."
+	cleanup_all
+	exit 1
+fi
 
 #
 # Run k2hdkclinetool

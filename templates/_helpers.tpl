@@ -27,7 +27,7 @@
 *
 */}}
 {{- define "k2hdkc.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+	{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{-
@@ -41,16 +41,16 @@
 *
 */}}
 {{- define "k2hdkc.fullname" -}}
-{{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
-{{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
-{{- end }}
-{{- end }}
+	{{- if .Values.fullnameOverride }}
+		{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+	{{- else }}
+		{{- $name := default .Chart.Name .Values.nameOverride }}
+		{{- if contains $name .Release.Name }}
+			{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+		{{- else }}
+			{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+		{{- end }}
+	{{- end }}
 {{- end }}
 
 {{-
@@ -59,8 +59,8 @@
 *
 */}}
 {{- define "k2hdkc.clusterName" -}}
-{{- $tmpname := default .Release.Name .Values.dbaas.clusterName }}
-{{- printf "%s" $tmpname | trunc 63 | trimSuffix "-" }}
+	{{- $tmpname := default .Release.Name .Values.dbaas.clusterName }}
+	{{- printf "%s" $tmpname | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{-
@@ -69,8 +69,8 @@
 *
 */}}
 {{- define "k2hdkc.k2hr3ClusterName" -}}
-{{- $tmpname := default "k2hr3" .Values.k2hr3.clusterName }}
-{{- printf "%s" $tmpname | trunc 63 | trimSuffix "-" }}
+	{{- $tmpname := default "k2hr3" .Values.k2hr3.clusterName }}
+	{{- printf "%s" $tmpname | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{-
@@ -79,8 +79,8 @@
 *
 */}}
 {{- define "k2hdkc.k8sNamespace" -}}
-{{- $tmpname := default .Release.Namespace .Values.k8s.namespace }}
-{{- printf "%s" $tmpname }}
+	{{- $tmpname := default .Release.Namespace .Values.k8s.namespace }}
+	{{- printf "%s" $tmpname }}
 {{- end }}
 
 {{-
@@ -89,8 +89,8 @@
 *
 */}}
 {{- define "k2hdkc.dbaasBaseDomain" -}}
-{{- $tmpdomain := default "svc.cluster.local" .Values.k8s.domain }}
-{{- default $tmpdomain .Values.dbaas.baseDomain }}
+	{{- $tmpdomain := default "svc.cluster.local" .Values.k8s.domain }}
+	{{- default $tmpdomain .Values.dbaas.baseDomain }}
 {{- end }}
 
 {{-
@@ -100,24 +100,24 @@
 */}}
 
 {{- define "k2hdkc.k2hr3BaseDomain" -}}
-{{- default (include "k2hdkc.dbaasBaseDomain" .) .Values.k2hr3.baseDomain }}
+	{{- default (include "k2hdkc.dbaasBaseDomain" .) .Values.k2hr3.baseDomain }}
 {{- end }}
 
 {{- define "k2hdkc.r3apiBaseName" -}}
-{{- if .Values.k2hr3.api.baseName }}
-{{- .Values.k2hr3.api.baseName }}
-{{- else }}
-{{- $tmpbasename := include "k2hdkc.k2hr3ClusterName" . }}
-{{- printf "r3api-%s" $tmpbasename }}
-{{- end }}
+	{{- if .Values.k2hr3.api.baseName }}
+		{{- .Values.k2hr3.api.baseName }}
+	{{- else }}
+		{{- $tmpbasename := include "k2hdkc.k2hr3ClusterName" . }}
+		{{- printf "r3api-%s" $tmpbasename }}
+	{{- end }}
 {{- end }}
 
 {{- define "k2hdkc.r3apiIntSvcFullname" -}}
-{{- printf "svc-%s.%s.%s" (include "k2hdkc.r3apiBaseName" .) (include "k2hdkc.k8sNamespace" .) (include "k2hdkc.k2hr3BaseDomain" .) }}
+	{{- printf "svc-%s.%s.%s" (include "k2hdkc.r3apiBaseName" .) (include "k2hdkc.k8sNamespace" .) (include "k2hdkc.k2hr3BaseDomain" .) }}
 {{- end }}
 
 {{- define "k2hdkc.r3apiIntPort" -}}
-{{- default 443 .Values.k2hr3.api.intPort }}
+	{{- default 443 .Values.k2hr3.api.intPort }}
 {{- end }}
 
 {{-
@@ -126,7 +126,7 @@
 *
 */}}
 {{- define "k2hdkc.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+	{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{-
@@ -159,11 +159,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 *
 */}}
 {{- define "k2hdkc.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "k2hdkc.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
+	{{- if .Values.serviceAccount.create }}
+		{{- default (include "k2hdkc.fullname" .) .Values.serviceAccount.name }}
+	{{- else }}
+		{{- default "default" .Values.serviceAccount.name }}
+	{{- end }}
 {{- end }}
 
 {{-
@@ -174,26 +174,88 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 *
 */}}
 {{- define "k2hdkc.certPeriodDays" -}}
-{{- int (mul .Values.antpickax.certPeriodYear 365) }}
+	{{- int (mul .Values.antpickax.certPeriodYear 365) }}
 {{- end }}
 
 {{-
 /*---------------------------------------------------------
 * Set organization and version fo images
 *
-*/}}
-{{- define "images.k2hdkcOrg" -}}
-{{- default "antpickax" .Values.images.dkc.organization }}
-{{- end }}
-{{- define "images.k2hdkcVer" -}}
-{{- default "1.0.3" .Values.images.dkc.version }}
+* K2HDKC Image ( images.k2hdkcImage )
+*/
+-}}
+{{- define "images.k2hdkcImage" -}}
+	{{- if .Values.images.dkc.fullImageName }}
+		{{- default "" .Values.images.dkc.fullImageName }}
+	{{- else }}
+		{{- $tmpdkcorg  := default "antpickax" .Values.images.default.organization }}
+		{{- $tmpdkcname := "k2hdkc" }}
+		{{- $tmpdkcver  := "1.0.9" }}
+		{{- if .Values.images.dkc.organization }}
+			{{- $tmpdkcorg = .Values.images.dkc.organization }}
+		{{- end }}
+		{{- if .Values.images.dkc.imageName }}
+			{{- $tmpdkcname = .Values.images.dkc.imageName }}
+		{{- end }}
+		{{- if .Values.images.dkc.version }}
+			{{- $tmpdkcver = .Values.images.dkc.version }}
+		{{- end }}
+		{{- printf "%s/%s:%s" $tmpdkcorg $tmpdkcname $tmpdkcver }}
+	{{- end }}
 {{- end }}
 
-{{- define "images.chmpxOrg" -}}
-{{- default "antpickax" .Values.images.chmpx.organization }}
+{{-
+/*
+* Chmpx Image ( images.chmpxImage )
+*/
+-}}
+{{- define "images.chmpxImage" -}}
+	{{- if .Values.images.chmpx.fullImageName }}
+		{{- default "" .Values.images.chmpx.fullImageName }}
+	{{- else }}
+		{{- $tmpchmpxorg  := default "antpickax" .Values.images.default.organization }}
+		{{- $tmpchmpxname := "chmpx" }}
+		{{- $tmpchmpxver  := "1.0.102" }}
+		{{- if .Values.images.chmpx.organization }}
+			{{- $tmpchmpxorg = .Values.images.chmpx.organization }}
+		{{- end }}
+		{{- if .Values.images.chmpx.imageName }}
+			{{- $tmpchmpxname = .Values.images.chmpx.imageName }}
+		{{- end }}
+		{{- if .Values.images.chmpx.version }}
+			{{- $tmpchmpxver = .Values.images.chmpx.version }}
+		{{- end }}
+		{{- printf "%s/%s:%s" $tmpchmpxorg $tmpchmpxname $tmpchmpxver }}
+	{{- end }}
 {{- end }}
-{{- define "images.chmpxVer" -}}
-{{- default "1.0.96" .Values.images.chmpx.version }}
+
+{{-
+/*
+* Init Image ( images.initImage )
+*/
+-}}
+{{- define "images.initImage" -}}
+	{{- if .Values.images.init.fullImageName }}
+		{{- default "" .Values.images.init.fullImageName }}
+	{{- else }}
+		{{- $tmpinitorg  := "" }}
+		{{- $tmpinitname := "alpine" }}
+		{{- $tmpinitver  := "3.18.4" }}
+		{{- if .Values.images.init.organization }}
+			{{- $tmpinitorg = .Values.images.init.organization }}
+		{{- end }}
+		{{- if .Values.images.init.imageName }}
+			{{- $tmpinitname = .Values.images.init.imageName }}
+		{{- end }}
+		{{- if .Values.images.init.version }}
+			{{- $tmpinitver = .Values.images.init.version }}
+		{{- end }}
+		{{- if $tmpinitorg }}
+			{{- printf "%s/%s:%s" $tmpinitorg $tmpinitname $tmpinitver }}
+		{{- else }}
+			{{- printf "%s:%s" $tmpinitname $tmpinitver }}
+		{{- end }}
+	{{- end }}
 {{- end }}
 
 {{-
@@ -202,13 +264,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 *
 */}}
 {{- define "k2hdkc.slaveImage" -}}
-{{- if .Values.dbaas.slave.image }}
-{{- .Values.dbaas.slave.image }}
-{{- else -}}
-{{- $tmporg := (include "images.k2hdkcOrg" .) }}
-{{- $tmpver := (include "images.k2hdkcVer" .) }}
-{{- printf "%s/k2hdkc:%s" $tmporg $tmpver }}
-{{- end }}
+	{{- if .Values.dbaas.slave.image }}
+		{{- .Values.dbaas.slave.image }}
+	{{- else -}}
+		{{ include "images.k2hdkcImage" . }}
+	{{- end }}
 {{- end }}
 
 {{- define "k2hdkc.slaveCommand" -}}
@@ -245,6 +305,241 @@ args: [
 args: ["{{ .Values.mountPoint.configMap }}/dbaas-k2hdkc-dummyslave.sh"]
 {{- end }}
 {{- end }}
+{{- end }}
+
+{{-
+/*---------------------------------------------------------
+* Set PROXY environments.
+*
+* Schema separation for Base proxy environment
+*
+*/}}
+{{- define "tmp.HttpProxyWS" -}}
+	{{- if .Values.dbaas.env.httpProxy }}
+		{{- if contains "http://" .Values.dbaas.env.httpProxy }}
+			{{- default "" .Values.dbaas.env.httpProxy }}
+		{{- else if contains "https://" .Values.dbaas.env.httpProxy }}
+			{{- default "" .Values.dbaas.env.httpProxy }}
+		{{- else }}
+			{{- printf "http://%s" .Values.dbaas.env.httpProxy }}
+		{{- end }}
+	{{- else }}
+		{{- default "" .Values.dbaas.env.httpProxy }}
+	{{- end }}
+{{- end }}
+
+{{- define "tmp.HttpProxy" -}}
+	{{- if .Values.dbaas.env.httpProxy }}
+		{{- if contains "http://" .Values.dbaas.env.httpProxy }}
+			{{- default "" .Values.dbaas.env.httpProxy | replace "http://" "" }}
+		{{- else if contains "https://" .Values.dbaas.env.httpProxy }}
+			{{- default "" .Values.dbaas.env.httpProxy | replace "https://" "" }}
+		{{- else }}
+			{{- default "" .Values.dbaas.env.httpProxy }}
+		{{- end }}
+	{{- else }}
+		{{- default "" .Values.dbaas.env.httpProxy }}
+	{{- end }}
+{{- end }}
+
+{{- define "tmp.HttpsProxyWS" -}}
+	{{- if .Values.dbaas.env.httpsProxy }}
+		{{- if contains "http://" .Values.dbaas.env.httpsProxy }}
+			{{- default "" .Values.dbaas.env.httpsProxy }}
+		{{- else if contains "https://" .Values.dbaas.env.httpsProxy }}
+			{{- default "" .Values.dbaas.env.httpsProxy }}
+		{{- else }}
+			{{- printf "http://%s" .Values.dbaas.env.httpsProxy }}
+		{{- end }}
+	{{- else }}
+		{{- default "" .Values.dbaas.env.httpsProxy }}
+	{{- end }}
+{{- end }}
+
+{{- define "tmp.HttpsProxy" -}}
+	{{- if .Values.dbaas.env.httpsProxy }}
+		{{- if contains "http://" .Values.dbaas.env.httpsProxy }}
+			{{- default "" .Values.dbaas.env.httpsProxy | replace "http://" "" }}
+		{{- else if contains "https://" .Values.dbaas.env.httpsProxy }}
+			{{- default "" .Values.dbaas.env.httpsProxy | replace "https://" "" }}
+		{{- else }}
+			{{- default "" .Values.dbaas.env.httpsProxy }}
+		{{- end }}
+	{{- else }}
+		{{- default "" .Values.dbaas.env.httpsProxy }}
+	{{- end }}
+{{- end }}
+
+{{-
+/*
+* PROXY Environment for K2HDKC Container
+*/
+-}}
+{{- define "env.dkc.httpProxy" -}}
+	{{- if contains "alpine" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxyWS" .) }}
+	{{- else if contains "debian" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "ubuntu" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "rocky" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "centos" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "fedora" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else }}
+		{{- printf "%s" (include "tmp.HttpProxyWS" .) }}
+	{{- end }}
+{{- end }}
+{{- define "env.dkc.httpsProxy" -}}
+	{{- if contains "alpine" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxyWS" .) }}
+	{{- else if contains "debian" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "ubuntu" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "rocky" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "centos" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "fedora" (include "images.k2hdkcImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else }}
+		{{- printf "%s" (include "tmp.HttpsProxyWS" .) }}
+	{{- end }}
+{{- end }}
+{{- define "env.dkc.noProxy" -}}
+	{{- default "" .Values.dbaas.env.noProxy }}
+{{- end }}
+
+{{-
+/*
+* PROXY Environment for CHMPX Conatiner
+*/
+-}}
+{{- define "env.chmpx.httpProxy" -}}
+	{{- if contains "alpine" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxyWS" .) }}
+	{{- else if contains "debian" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "ubuntu" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "rocky" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "centos" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "fedora" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else }}
+		{{- printf "%s" (include "tmp.HttpProxyWS" .) }}
+	{{- end }}
+{{- end }}
+{{- define "env.chmpx.httpsProxy" -}}
+	{{- if contains "alpine" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxyWS" .) }}
+	{{- else if contains "debian" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "ubuntu" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "rocky" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "centos" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "fedora" (include "images.chmpxImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else }}
+		{{- printf "%s" (include "tmp.HttpsProxyWS" .) }}
+	{{- end }}
+{{- end }}
+{{- define "env.chmpx.noProxy" -}}
+	{{- default "" .Values.dbaas.env.noProxy }}
+{{- end }}
+
+{{-
+/*
+* PROXY Environment for Init/Setup Container
+*/
+-}}
+{{- define "env.init.httpProxy" -}}
+	{{- if contains "alpine" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxyWS" .) }}
+	{{- else if contains "debian" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "ubuntu" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "rocky" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "centos" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "fedora" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else }}
+		{{- printf "%s" (include "tmp.HttpProxyWS" .) }}
+	{{- end }}
+{{- end }}
+{{- define "env.init.httpsProxy" -}}
+	{{- if contains "alpine" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxyWS" .) }}
+	{{- else if contains "debian" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "ubuntu" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "rocky" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "centos" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "fedora" (include "images.initImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else }}
+		{{- printf "%s" (include "tmp.HttpsProxyWS" .) }}
+	{{- end }}
+{{- end }}
+{{- define "env.init.noProxy" -}}
+	{{- default "" .Values.dbaas.env.noProxy }}
+{{- end }}
+
+{{-
+/*
+* PROXY Environment for Slave Container
+*/
+-}}
+{{- define "env.slave.httpProxy" -}}
+	{{- if contains "alpine" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxyWS" .) }}
+	{{- else if contains "debian" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "ubuntu" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "rocky" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "centos" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else if contains "fedora" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpProxy" .) }}
+	{{- else }}
+		{{- printf "%s" (include "tmp.HttpProxyWS" .) }}
+	{{- end }}
+{{- end }}
+{{- define "env.slave.httpsProxy" -}}
+	{{- if contains "alpine" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxyWS" .) }}
+	{{- else if contains "debian" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "ubuntu" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "rocky" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "centos" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else if contains "fedora" (include "k2hdkc.slaveImage" .) }}
+		{{- printf "%s" (include "tmp.HttpsProxy" .) }}
+	{{- else }}
+		{{- printf "%s" (include "tmp.HttpsProxyWS" .) }}
+	{{- end }}
+{{- end }}
+{{- define "env.slave.noProxy" -}}
+	{{- default "" .Values.dbaas.env.noProxy }}
 {{- end }}
 
 {{-
