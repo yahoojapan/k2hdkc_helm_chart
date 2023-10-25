@@ -18,8 +18,6 @@
 # REVISION:
 #
 
-.DS_Store
-
 # Git files/directories
 .git/
 .github/
@@ -40,6 +38,10 @@
 
 # Project files
 CHANGELOG.md
+
+# Other
+.DS_Store
+s*.yaml
 
 #
 # Local variables:
