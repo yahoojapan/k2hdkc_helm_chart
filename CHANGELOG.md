@@ -47,6 +47,18 @@ file ready.
 -->
 # Change Log for K2HDKC Helm Chart
 
+## [1.0.2] - 2022-10-25
+### Changed
+- Updated .helmignore file
+- Added flexibility such as PROXY environment and Image selection
+- Fixed bugs about shellscript contidion
+- Updated header and footer in comment lines
+- Updated issue/pullrequest templates
+- Reviewed ShellCheck processing
+- Updated ci.yml for upgrading actions/checkout
+- Updated azure/setup-helm from v1 to v3
+- Updated helm_packager.sh for changing grep parameter
+
 ## [1.0.1] - 2022-03-11
 ### Changed
 - Supported RANCHER as RANCHER Helm Chart
@@ -55,5 +67,6 @@ file ready.
 ### Changed
 - Initial Commit and publishing
 
+[1.0.2]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/9a17586...v1.0.0
