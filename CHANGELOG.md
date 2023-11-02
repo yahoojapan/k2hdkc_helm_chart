@@ -47,7 +47,7 @@ file ready.
 -->
 # Change Log for K2HDKC Helm Chart
 
-## [1.0.15] - 2023-11-02
+## [1.0.3] - 2023-11-02
 ### Changed
 - Changed the default version for Docker images
 
