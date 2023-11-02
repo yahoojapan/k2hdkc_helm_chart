@@ -200,7 +200,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: svrchmpx-dummy
-          image: chmpx:1.0.102
+          image: chmpx:1.0.103
           env:
             - name: HTTP_PROXY
               value: ""
@@ -230,7 +230,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: svrk2hdkc-dummy
-          image: k2hdkc:1.0.9
+          image: k2hdkc:1.0.10
           env:
             - name: HTTP_PROXY
               value: ""
@@ -424,7 +424,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: slvchmpx-dummy
-          image: chmpx:1.0.102
+          image: chmpx:1.0.103
           env:
             - name: HTTP_PROXY
               value: ""
@@ -454,7 +454,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: slvk2hdkc-dummy
-          image: k2hdkc:1.0.9
+          image: k2hdkc:1.0.10
           env:
             - name: HTTP_PROXY
               value: ""
@@ -4256,7 +4256,7 @@ spec:
 
   containers:
     - name: chkk2hdkc-dummy
-      image: k2hdkc:1.0.9
+      image: k2hdkc:1.0.10
       env:
         - name: HTTP_PROXY
           value: ""
