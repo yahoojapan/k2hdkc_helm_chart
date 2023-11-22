@@ -3,11 +3,51 @@ entries:
   k2hdkc:
   - annotations:
       artifacthub.io/changes: |
+        - Updated the default version for Docker images
+      catalog.cattle.io/display-name: K2HDKC - Database as a Service
+    apiVersion: v2
+    appVersion: 1.0.4
+    created: "2023-11-22T08:25:19.267681618Z"
+    description: K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster)
+      Database as a Service on Kubernetes
+    digest: 6496bafb6072751eb4213d330151486309d0aedfa99ba0be4f34a065db2b87a6
+    home: https://dbaas.k2hdkc.antpick.ax/
+    icon: https://antpick.ax/images/antpickax_circle_512x512.png
+    keywords:
+    - K2HDKC
+    - NOSQL
+    - KVS
+    - DBaaS
+    - Distributes
+    - Database
+    - Queue
+    - AntPickax
+    - Helm
+    - kubernetes
+    - K2HR3
+    - K2HASH
+    - CHMPX
+    - In-memory
+    kubeVersion: '>=v1.20'
+    maintainers:
+    - email: ggtakec@gmail.com
+      name: Takeshi Nakatani
+    - email: hiwakaba@yahoo-corp.jp
+      name: Hirotaka Wakabayashi
+    name: k2hdkc
+    sources:
+    - https://github.com/yahoojapan/k2hdkc_helm_chart
+    type: application
+    urls:
+    - https://github.com/yahoojapan/k2hdkc_helm_chart/releases/download/v1.0.4/k2hdkc-1.0.4.tgz
+    version: 1.0.4
+  - annotations:
+      artifacthub.io/changes: |
         - Changed the default version for Docker images
       catalog.cattle.io/display-name: K2HDKC - Database as a Service
     apiVersion: v2
     appVersion: 1.0.3
-    created: "2023-11-02T06:29:33.511308471Z"
+    created: "2023-11-22T08:25:19.266339047Z"
     description: K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster)
       Database as a Service on Kubernetes
     digest: 2dafdd13115c1c1cbb924d66e03034c9511dca51c7f3eebf80719dd23d717f16
@@ -55,7 +95,7 @@ entries:
       catalog.cattle.io/display-name: K2HDKC - Database as a Service
     apiVersion: v2
     appVersion: 1.0.2
-    created: "2023-11-02T06:29:33.509064448Z"
+    created: "2023-11-22T08:25:19.263830023Z"
     description: K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster)
       Database as a Service on Kubernetes
     digest: b06f934e21192a342475fce4dc1243c3571ffb476dca25d31aa145bb299110c9
@@ -95,7 +135,7 @@ entries:
       catalog.cattle.io/display-name: K2HDKC - Database as a Service
     apiVersion: v2
     appVersion: 1.0.1
-    created: "2023-11-02T06:29:33.506872425Z"
+    created: "2023-11-22T08:25:19.261717156Z"
     description: K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster)
       Database as a Service on Kubernetes
     digest: 073bb36f75cdf2a259edd0e01959c6dc5762f4c862ccf00aec109932feceb543
@@ -134,7 +174,7 @@ entries:
         - Initial Commit and publishing
     apiVersion: v2
     appVersion: 1.0.0
-    created: "2023-11-02T06:29:33.504935205Z"
+    created: "2023-11-22T08:25:19.26052202Z"
     description: K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster)
       Database as a Service on Kubernetes
     digest: 4f1e018c020322552463933bae440ac5c4cfafca261701b3ed1a8f59ba4d4578
@@ -168,4 +208,4 @@ entries:
     urls:
     - https://github.com/yahoojapan/k2hdkc_helm_chart/releases/download/v1.0.0/k2hdkc-1.0.0.tgz
     version: 1.0.0
-generated: "2023-11-02T06:29:33.500538359Z"
+generated: "2023-11-22T08:25:19.25846077Z"
