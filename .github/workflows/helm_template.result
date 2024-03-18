@@ -89,7 +89,7 @@ spec:
 
       initContainers:
         - name: svrinit-dummy
-          image: alpine:3.18.4
+          image: alpine:3.19.1
           env:
             - name: HTTP_PROXY
               value: ""
@@ -169,7 +169,7 @@ spec:
 
       containers:
         - name: svrupdate-dummy
-          image: alpine:3.18.4
+          image: alpine:3.19.1
           env:
             - name: HTTP_PROXY
               value: ""
@@ -200,7 +200,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: svrchmpx-dummy
-          image: chmpx:1.0.104
+          image: chmpx:1.0.105
           env:
             - name: HTTP_PROXY
               value: ""
@@ -230,7 +230,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: svrk2hdkc-dummy
-          image: k2hdkc:1.0.11
+          image: k2hdkc:1.0.12
           env:
             - name: HTTP_PROXY
               value: ""
@@ -313,7 +313,7 @@ spec:
 
       initContainers:
         - name: slvinit-dummy
-          image: alpine:3.18.4
+          image: alpine:3.19.1
           env:
             - name: HTTP_PROXY
               value: ""
@@ -393,7 +393,7 @@ spec:
 
       containers:
         - name: slvupdate-dummy
-          image: alpine:3.18.4
+          image: alpine:3.19.1
           env:
             - name: HTTP_PROXY
               value: ""
@@ -424,7 +424,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: slvchmpx-dummy
-          image: chmpx:1.0.104
+          image: chmpx:1.0.105
           env:
             - name: HTTP_PROXY
               value: ""
@@ -454,7 +454,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: slvk2hdkc-dummy
-          image: k2hdkc:1.0.11
+          image: k2hdkc:1.0.12
           env:
             - name: HTTP_PROXY
               value: ""
@@ -4176,7 +4176,7 @@ spec:
 
   initContainers:
     - name: chkinit-dummy
-      image: alpine:3.18.4
+      image: alpine:3.19.1
       env:
         - name: HTTP_PROXY
           value: ""
@@ -4256,7 +4256,7 @@ spec:
 
   containers:
     - name: chkk2hdkc-dummy
-      image: k2hdkc:1.0.11
+      image: k2hdkc:1.0.12
       env:
         - name: HTTP_PROXY
           value: ""
@@ -4331,7 +4331,7 @@ spec:
 
       containers:
       - name: setup-k2hr3-dummy-job
-        image: alpine:3.18.4
+        image: alpine:3.19.1
         env:
           - name: HTTP_PROXY
             value: ""
@@ -4417,7 +4417,7 @@ spec:
 
       containers:
       - name: unsetup-k2hr3-dummy-job
-        image: alpine:3.18.4
+        image: alpine:3.19.1
         env:
           - name: HTTP_PROXY
             value: ""
