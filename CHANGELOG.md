@@ -47,6 +47,10 @@ file ready.
 -->
 # Change Log for K2HDKC Helm Chart
 
+## [1.0.6] - 2025-01-22
+### Changed
+- Updated dependencies and scripts
+
 ## [1.0.5] - 2024-03-18
 ### Changed
 - Updated the version of docker images
@@ -79,6 +83,7 @@ file ready.
 ### Changed
 - Initial Commit and publishing
 
+[1.0.6]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.2...v1.0.3
