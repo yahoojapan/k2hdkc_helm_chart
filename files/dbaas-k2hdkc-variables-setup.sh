@@ -19,7 +19,7 @@
 # REVISION:
 #
 
-#---------------------------------------------------------------
+#----------------------------------------------------------
 # Environments
 #
 # This script expects the following environment variables to be
@@ -59,7 +59,7 @@
 #	SEC_UTOKEN_FILENAME			K2HR3 unscoped token filename
 #	CERT_PERIOD_DAYS			Period days for certificate
 #
-#---------------------------------------------------------------
+#----------------------------------------------------------
 # Load variables from system file
 #
 #	K2HDKC_CONTAINER_ID			This value is the <docker id> that
@@ -68,7 +68,7 @@
 #								as the 'container id'.)
 #								This value is added to CUK data.
 #
-#---------------------------------------------------------------
+#----------------------------------------------------------
 # Output files
 #
 # This script outputs the following files under '/etc/antpickax'
@@ -84,18 +84,18 @@
 #	K2HR3_FILE_APIARG			packed cuk argument("extra=...&cuk=value")
 #								to K2HR3 REST API(PUT/GET/DELETE/etc)
 #
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 
-#
+#----------------------------------------------------------
 # Program information
-#
+#----------------------------------------------------------
 PRGNAME=$(basename "$0")
 SRCTOP=$(dirname "$0")
 SRCTOP=$(cd "${SRCTOP}" || exit 1; pwd)
 
-#
+#----------------------------------------------------------
 # Common Variables
-#
+#----------------------------------------------------------
 DBAAS_FILE_API_URL="k2hr3-api-url"
 DBAAS_FILE_REGISTER_URL="k2hr3-register-url"
 DBAAS_FILE_ROLE="k2hr3-role"
@@ -113,68 +113,91 @@ K2HR3_API_REGISTER_PATH="/v1/role"
 K2HDKC_CONTAINER_ID=""
 
 #----------------------------------------------------------
+# Setup OS_NAME
+#----------------------------------------------------------
+if [ ! -f /etc/os-release ]; then
+	echo "[ERROR] Not found /etc/os-release file." 1>&2
+	exit 1
+fi
+OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+
+if echo "${OS_NAME}" | grep -q -i "centos"; then
+	echo "[ERROR] Not support ${OS_NAME}." 1>&2
+	exit 1
+fi
+
+#----------------------------------------------------------
+# Utility for ubuntu
+#----------------------------------------------------------
+IS_SETUP_APT_ENV=0
+
+setup_apt_envirnment()
+{
+	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+		return 0
+	fi
+	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+
+			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+			fi
+			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+			fi
+			if [ ! -d /etc/apt/apt.conf.d ]; then
+				mkdir -p /etc/apt/apt.conf.d
+			fi
+			{
+				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+				fi
+				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+				fi
+			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+		fi
+	fi
+	DEBIAN_FRONTEND=noninteractive
+	export DEBIAN_FRONTEND
+
+	IS_SETUP_APT_ENV=1
+
+	return 0
+}
+
+#----------------------------------------------------------
 # Check curl command
 #----------------------------------------------------------
 if ! command -v curl >/dev/null 2>&1; then
-	if [ ! -f /etc/os-release ]; then
-		echo "[ERROR] Not found /etc/os-release file."
-		exit 1
-	fi
-	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
-
 	if echo "${OS_NAME}" | grep -q -i "alpine"; then
 		if ! apk update -q --no-progress >/dev/null 2>&1 || ! apk add -q --no-progress --no-cache curl >/dev/null 2>&1; then
-			echo "[ERROR] Failed to install curl."
+			echo "[ERROR] Failed to install curl." 1>&2
 			exit 1
 		fi
 	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-
-				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-				fi
-				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-				fi
-				if [ ! -d /etc/apt/apt.conf.d ]; then
-					mkdir -p /etc/apt/apt.conf.d
-				fi
-				{
-					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-			fi
-		fi
-		DEBIAN_FRONTEND=noninteractive
-		export DEBIAN_FRONTEND
-
+		setup_apt_envirnment
 		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y curl >/dev/null 2>&1; then
-			echo "[ERROR] Failed to install curl."
-			exit 1
-		fi
-	elif echo "${OS_NAME}" | grep -q -i "centos"; then
-		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y curl >/dev/null 2>&1; then
-			echo "[ERROR] Failed to install curl."
+			echo "[ERROR] Failed to install curl." 1>&2
 			exit 1
 		fi
 	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
-			echo "[ERROR] Failed to install curl."
+		if ! dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
+			echo "[ERROR] Failed to install curl." 1>&2
 			exit 1
 		fi
 	else
-		echo "[ERROR] Unknown OS type(${OS_NAME})."
+		echo "[ERROR] Unknown OS type(${OS_NAME})." 1>&2
 		exit 1
 	fi
 fi
 CURL_COMMAND=$(command -v curl | tr -d '\n')
 
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 # Check Environments
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 if [ -z "${ANTPICKAX_ETC_DIR}" ] || [ ! -d "${ANTPICKAX_ETC_DIR}" ]; then
 	echo "[ERROR] ${PRGNAME} : ANTPICKAX_ETC_DIR environment is not set or not directory." 1>&2
 	exit 1
@@ -255,9 +278,9 @@ if [ -z "${CERT_PERIOD_DAYS}" ]; then
 	exit 1
 fi
 
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 # Get Scoped token
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 #
 # Request options for curl
 #
@@ -281,7 +304,7 @@ fi
 # Unscoped token from environment
 #
 if [ ! -f "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}" ]; then
-	echo "[ERROR] ${PRGNAME} : K2HR3 Unscoped token file(${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}) is not existed."
+	echo "[ERROR] ${PRGNAME} : K2HR3 Unscoped token file(${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}) is not existed." 1>&2
 	exit 1
 fi
 K2HR3_UNSCOPED_TOKEN=$(tr -d '\n' < "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}")
@@ -299,12 +322,12 @@ REQUEST_POST_BODY="-d '{\"auth\":{\"tenantName\":\"${K2HR3_TENANT}\"}}'"
 REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_UNSCOPED_TOKEN}\""
 
 if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
-	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
+	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code" 1>&2
 	rm -f "${RESPONSE_FILE}"
 	exit 1
 fi
 if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "201" ]; then
-	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})"
+	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})" 1>&2
 	rm -f "${RESPONSE_FILE}"
 	exit 1
 fi
@@ -317,7 +340,7 @@ REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*
 REQ_SCOPED=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*scoped=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "${REQ_RESULT}" != "true" ] || [ "${REQ_SCOPED}" != "true" ]; then
-	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\""
+	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\"" 1>&2
 	rm -f "${RESPONSE_FILE}"
 	exit 1
 fi
@@ -325,9 +348,9 @@ K2HR3_SCOPED_TOKEN="${REQ_TOKEN}"
 
 rm -f "${RESPONSE_FILE}"
 
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 # Get Role token
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 #
 # [Request]
 #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<scoped token>" -X GET https://<k2hr3 api>/v1/role/token/<role name>?expire=0
@@ -339,12 +362,12 @@ REQUEST_URLARGS="/v1/role/token/${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}"
 REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_SCOPED_TOKEN}\""
 
 if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} -X GET ${K2HR3_API_URL}${REQUEST_URLARGS}?expire=0"); then
-	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with curl error code"
+	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with curl error code" 1>&2
 	rm -f "${RESPONSE_FILE}"
 	exit 1
 fi
 if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "200" ]; then
-	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with http exit code(${REQ_EXIT_CODE})"
+	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with http exit code(${REQ_EXIT_CODE})" 1>&2
 	rm -f "${RESPONSE_FILE}"
 	exit 1
 fi
@@ -353,7 +376,7 @@ REQ_RESULT=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*r
 REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
 if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "${REQ_RESULT}" != "true" ] || [ "${REQ_SCOPED}" != "true" ]; then
-	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed by \"${REQ_MESSAGE}\""
+	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed by \"${REQ_MESSAGE}\"" 1>&2
 	rm -f "${RESPONSE_FILE}"
 	exit 1
 fi
@@ -361,9 +384,9 @@ K2HR3_ROLE_TOKEN="${REQ_TOKEN}"
 
 rm -f "${RESPONSE_FILE}"
 
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 # Create registration parameters
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 #
 # Make CONTAINER_ID with checking pod id
 #
@@ -478,9 +501,9 @@ TAG_STRING=${K2HDKC_POD_NAME}
 K2HDKC_ROLE_YRN=${K2HR3_YRN_PREFIX}${K2HDKC_NAMESPACE}:role:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
 K2HDKC_RESOURCE_YRN=${K2HR3_YRN_PREFIX}${K2HDKC_NAMESPACE}:resource:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
 
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 # Save parameters for accessing to K2HR3
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 #
 # Make each parameters to files
 #
@@ -493,9 +516,9 @@ echo "${CUK_BASE64_URLENC}"												| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DB
 echo "extra=${EXTRA_STRING}&cuk=${CUK_BASE64_URLENC}&tag=${TAG_STRING}"	| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_APIARG}"
 echo "${K2HR3_ROLE_TOKEN}"												| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_ROLE_TOKEN}"
 
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 # Create certificate and Save those
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 if [ -n "${SEC_CA_MOUNTPOINT}" ]; then
 	#
 	# Create certificate for me
@@ -506,9 +529,9 @@ if [ -n "${SEC_CA_MOUNTPOINT}" ]; then
 	fi
 fi
 
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 # Finish
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 echo "[Succeed] ${PRGNAME} : Finished variables setup without any error." 1>&2
 exit 0
 

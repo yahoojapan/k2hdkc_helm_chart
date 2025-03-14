@@ -24,7 +24,7 @@ description: |-
    K2HDKC Helm Chart - K2HDKC(K2Hash based Distributed Kvs Cluster) Database as a Service on Kubernetes
 type: application
 appVersion: "1.0.6"
-kubeVersion: ">=v1.20"
+kubeVersion: ">=1.26.0"
 maintainers:
   - name: "Takeshi Nakatani"
     email: ggtakec@gmail.com
