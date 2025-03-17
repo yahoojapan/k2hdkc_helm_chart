@@ -89,7 +89,7 @@ spec:
 
       initContainers:
         - name: svrinit-dummy
-          image: alpine:3.20
+          image: alpine:3.21
           env:
             - name: HTTP_PROXY
               value: ""
@@ -169,7 +169,7 @@ spec:
 
       containers:
         - name: svrupdate-dummy
-          image: alpine:3.20
+          image: alpine:3.21
           env:
             - name: HTTP_PROXY
               value: ""
@@ -200,7 +200,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: svrchmpx-dummy
-          image: chmpx:1.0.106
+          image: chmpx:1.0.108
           env:
             - name: HTTP_PROXY
               value: ""
@@ -230,7 +230,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: svrk2hdkc-dummy
-          image: k2hdkc:1.0.14
+          image: k2hdkc:1.0.15
           env:
             - name: HTTP_PROXY
               value: ""
@@ -313,7 +313,7 @@ spec:
 
       initContainers:
         - name: slvinit-dummy
-          image: alpine:3.20
+          image: alpine:3.21
           env:
             - name: HTTP_PROXY
               value: ""
@@ -393,7 +393,7 @@ spec:
 
       containers:
         - name: slvupdate-dummy
-          image: alpine:3.20
+          image: alpine:3.21
           env:
             - name: HTTP_PROXY
               value: ""
@@ -424,7 +424,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: slvchmpx-dummy
-          image: chmpx:1.0.106
+          image: chmpx:1.0.108
           env:
             - name: HTTP_PROXY
               value: ""
@@ -454,7 +454,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: slvk2hdkc-dummy
-          image: k2hdkc:1.0.14
+          image: k2hdkc:1.0.15
           env:
             - name: HTTP_PROXY
               value: ""
@@ -531,7 +531,7 @@ data:
     # REVISION:
     #
     
-    #---------------------------------------------------------------
+    #----------------------------------------------------------
     # Environments
     #
     # This script expects the following environment variables to be
@@ -571,7 +571,7 @@ data:
     #	SEC_UTOKEN_FILENAME			K2HR3 unscoped token filename
     #	CERT_PERIOD_DAYS			Period days for certificate
     #
-    #---------------------------------------------------------------
+    #----------------------------------------------------------
     # Load variables from system file
     #
     #	K2HDKC_CONTAINER_ID			This value is the <docker id> that
@@ -580,7 +580,7 @@ data:
     #								as the 'container id'.)
     #								This value is added to CUK data.
     #
-    #---------------------------------------------------------------
+    #----------------------------------------------------------
     # Output files
     #
     # This script outputs the following files under '/etc/antpickax'
@@ -596,18 +596,18 @@ data:
     #	K2HR3_FILE_APIARG			packed cuk argument("extra=...&cuk=value")
     #								to K2HR3 REST API(PUT/GET/DELETE/etc)
     #
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     
-    #
+    #----------------------------------------------------------
     # Program information
-    #
+    #----------------------------------------------------------
     PRGNAME=$(basename "$0")
     SRCTOP=$(dirname "$0")
     SRCTOP=$(cd "${SRCTOP}" || exit 1; pwd)
     
-    #
+    #----------------------------------------------------------
     # Common Variables
-    #
+    #----------------------------------------------------------
     DBAAS_FILE_API_URL="k2hr3-api-url"
     DBAAS_FILE_REGISTER_URL="k2hr3-register-url"
     DBAAS_FILE_ROLE="k2hr3-role"
@@ -625,68 +625,91 @@ data:
     K2HDKC_CONTAINER_ID=""
     
     #----------------------------------------------------------
+    # Setup OS_NAME
+    #----------------------------------------------------------
+    if [ ! -f /etc/os-release ]; then
+    	echo "[ERROR] Not found /etc/os-release file." 1>&2
+    	exit 1
+    fi
+    OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+    
+    if echo "${OS_NAME}" | grep -q -i "centos"; then
+    	echo "[ERROR] Not support ${OS_NAME}." 1>&2
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Utility for ubuntu
+    #----------------------------------------------------------
+    IS_SETUP_APT_ENV=0
+    
+    setup_apt_envirnment()
+    {
+    	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+    		return 0
+    	fi
+    	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+    		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+    			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+    			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+    
+    			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+    			fi
+    			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+    			fi
+    			if [ ! -d /etc/apt/apt.conf.d ]; then
+    				mkdir -p /etc/apt/apt.conf.d
+    			fi
+    			{
+    				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+    				fi
+    				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+    				fi
+    			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+    		fi
+    	fi
+    	DEBIAN_FRONTEND=noninteractive
+    	export DEBIAN_FRONTEND
+    
+    	IS_SETUP_APT_ENV=1
+    
+    	return 0
+    }
+    
+    #----------------------------------------------------------
     # Check curl command
     #----------------------------------------------------------
     if ! command -v curl >/dev/null 2>&1; then
-    	if [ ! -f /etc/os-release ]; then
-    		echo "[ERROR] Not found /etc/os-release file."
-    		exit 1
-    	fi
-    	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
-    
     	if echo "${OS_NAME}" | grep -q -i "alpine"; then
     		if ! apk update -q --no-progress >/dev/null 2>&1 || ! apk add -q --no-progress --no-cache curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
+    			echo "[ERROR] Failed to install curl." 1>&2
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-    		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-    			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-    				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-    				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-    
-    				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-    				fi
-    				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-    				fi
-    				if [ ! -d /etc/apt/apt.conf.d ]; then
-    					mkdir -p /etc/apt/apt.conf.d
-    				fi
-    				{
-    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-    				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-    			fi
-    		fi
-    		DEBIAN_FRONTEND=noninteractive
-    		export DEBIAN_FRONTEND
-    
+    		setup_apt_envirnment
     		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
-    			exit 1
-    		fi
-    	elif echo "${OS_NAME}" | grep -q -i "centos"; then
-    		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
+    			echo "[ERROR] Failed to install curl." 1>&2
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-    		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
+    		if ! dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
+    			echo "[ERROR] Failed to install curl." 1>&2
     			exit 1
     		fi
     	else
-    		echo "[ERROR] Unknown OS type(${OS_NAME})."
+    		echo "[ERROR] Unknown OS type(${OS_NAME})." 1>&2
     		exit 1
     	fi
     fi
     CURL_COMMAND=$(command -v curl | tr -d '\n')
     
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     # Check Environments
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     if [ -z "${ANTPICKAX_ETC_DIR}" ] || [ ! -d "${ANTPICKAX_ETC_DIR}" ]; then
     	echo "[ERROR] ${PRGNAME} : ANTPICKAX_ETC_DIR environment is not set or not directory." 1>&2
     	exit 1
@@ -767,9 +790,9 @@ data:
     	exit 1
     fi
     
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     # Get Scoped token
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     #
     # Request options for curl
     #
@@ -793,7 +816,7 @@ data:
     # Unscoped token from environment
     #
     if [ ! -f "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}" ]; then
-    	echo "[ERROR] ${PRGNAME} : K2HR3 Unscoped token file(${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}) is not existed."
+    	echo "[ERROR] ${PRGNAME} : K2HR3 Unscoped token file(${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}) is not existed." 1>&2
     	exit 1
     fi
     K2HR3_UNSCOPED_TOKEN=$(tr -d '\n' < "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}")
@@ -811,12 +834,12 @@ data:
     REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_UNSCOPED_TOKEN}\""
     
     if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
-    	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
+    	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code" 1>&2
     	rm -f "${RESPONSE_FILE}"
     	exit 1
     fi
     if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "201" ]; then
-    	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})"
+    	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})" 1>&2
     	rm -f "${RESPONSE_FILE}"
     	exit 1
     fi
@@ -829,7 +852,7 @@ data:
     REQ_SCOPED=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*scoped=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
     REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
     if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "${REQ_RESULT}" != "true" ] || [ "${REQ_SCOPED}" != "true" ]; then
-    	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\""
+    	echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\"" 1>&2
     	rm -f "${RESPONSE_FILE}"
     	exit 1
     fi
@@ -837,9 +860,9 @@ data:
     
     rm -f "${RESPONSE_FILE}"
     
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     # Get Role token
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     #
     # [Request]
     #	curl -s -S -w '%{http_code}\n' -o <file> -H 'Content-Type: application/json' -H "x-auth-token:U=<scoped token>" -X GET https://<k2hr3 api>/v1/role/token/<role name>?expire=0
@@ -851,12 +874,12 @@ data:
     REQUEST_HEADERS="-H 'Content-Type: application/json' -H \"x-auth-token:U=${K2HR3_SCOPED_TOKEN}\""
     
     if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} -X GET ${K2HR3_API_URL}${REQUEST_URLARGS}?expire=0"); then
-    	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with curl error code"
+    	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with curl error code" 1>&2
     	rm -f "${RESPONSE_FILE}"
     	exit 1
     fi
     if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "200" ]; then
-    	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with http exit code(${REQ_EXIT_CODE})"
+    	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed with http exit code(${REQ_EXIT_CODE})" 1>&2
     	rm -f "${RESPONSE_FILE}"
     	exit 1
     fi
@@ -865,7 +888,7 @@ data:
     REQ_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
     REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
     if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "${REQ_RESULT}" != "true" ] || [ "${REQ_SCOPED}" != "true" ]; then
-    	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed by \"${REQ_MESSAGE}\""
+    	echo "[ERROR] ${PRGNAME} : Request(get role token for server) is failed by \"${REQ_MESSAGE}\"" 1>&2
     	rm -f "${RESPONSE_FILE}"
     	exit 1
     fi
@@ -873,9 +896,9 @@ data:
     
     rm -f "${RESPONSE_FILE}"
     
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     # Create registration parameters
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     #
     # Make CONTAINER_ID with checking pod id
     #
@@ -990,9 +1013,9 @@ data:
     K2HDKC_ROLE_YRN=${K2HR3_YRN_PREFIX}${K2HDKC_NAMESPACE}:role:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
     K2HDKC_RESOURCE_YRN=${K2HR3_YRN_PREFIX}${K2HDKC_NAMESPACE}:resource:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
     
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     # Save parameters for accessing to K2HR3
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     #
     # Make each parameters to files
     #
@@ -1005,9 +1028,9 @@ data:
     echo "extra=${EXTRA_STRING}&cuk=${CUK_BASE64_URLENC}&tag=${TAG_STRING}"	| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_APIARG}"
     echo "${K2HR3_ROLE_TOKEN}"												| tr -d '\n' > "${ANTPICKAX_ETC_DIR}/${DBAAS_FILE_ROLE_TOKEN}"
     
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     # Create certificate and Save those
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     if [ -n "${SEC_CA_MOUNTPOINT}" ]; then
     	#
     	# Create certificate for me
@@ -1018,9 +1041,9 @@ data:
     	fi
     fi
     
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     # Finish
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     echo "[Succeed] ${PRGNAME} : Finished variables setup without any error." 1>&2
     exit 0
     
@@ -1055,13 +1078,13 @@ data:
     # REVISION:
     #
     
-    #---------------------------------------------------------------
+    #----------------------------------------------------------
     # Options
     #
     #	--register(-reg)	If specified, register with K2HR3 Role
     #	--delete(-del)		If specified, remove from K2HR3 Role
     #
-    #---------------------------------------------------------------
+    #----------------------------------------------------------
     # Input files
     #
     # This script loads the following files under '/etc/antpickax'
@@ -1083,18 +1106,18 @@ data:
     #								required. In this case, this file
     #								exists.
     #
-    #---------------------------------------------------------------
+    #----------------------------------------------------------
     
-    #
+    #----------------------------------------------------------
     # Program information
-    #
+    #----------------------------------------------------------
     PRGNAME=$(basename "$0")
     SRCTOP=$(dirname "$0")
     SRCTOP=$(cd "${SRCTOP}" || exit 1; pwd)
     
-    #
+    #----------------------------------------------------------
     # Common Variables
-    #
+    #----------------------------------------------------------
     ANTPICKAX_ETC_DIR="/etc/antpickax"
     K2HR3_CA_FILE="ca.crt"
     K2HR3_FILE_REGISTER_URL="k2hr3-register-url"
@@ -1102,9 +1125,9 @@ data:
     K2HR3_FILE_ROLE_TOKEN="k2hr3-role-token"
     K2HR3_FILE_APIARG="k2hr3-apiarg"
     
-    #
+    #----------------------------------------------------------
     # Check CA cert
-    #
+    #----------------------------------------------------------
     if [ -f "${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}" ]; then
     	K2HR3_CA_CERT_OPTION="--cacert"
     	K2HR3_CA_CERT_OPTION_VALUE="${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}"
@@ -1113,57 +1136,86 @@ data:
     	K2HR3_CA_CERT_OPTION_VALUE=""
     fi
     
-    #
+    #----------------------------------------------------------
     # Get K2HR3 ROLE TOKEN
-    #
+    #----------------------------------------------------------
     if ! K2HDKC_ROLE_TOKEN=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN} 2>/dev/null); then
     	echo "[ERROR] ${PRGNAME} : Could not load role token from secret." 1>&2
     	exit 1
     fi
     
-    #
+    #----------------------------------------------------------
     # Get Parameters from files
-    #
+    #----------------------------------------------------------
     K2HR3_REGISTER_URL=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_REGISTER_URL}" 2>/dev/null)
     K2HR3_ROLE=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE}" 2>/dev/null)
     K2HR3_APIARG=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_APIARG}" 2>/dev/null)
     
-    #
-    # Check curl command
-    #
-    if ! command -v curl >/dev/null 2>&1; then
-    	if [ ! -f /etc/os-release ]; then
-    		echo "[ERROR] Not found /etc/os-release file."
-    		exit 1
-    	fi
-    	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+    #----------------------------------------------------------
+    # Setup OS_NAME
+    #----------------------------------------------------------
+    if [ ! -f /etc/os-release ]; then
+    	echo "[ERROR] Not found /etc/os-release file." 1>&2
+    	exit 1
+    fi
+    OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
     
+    if echo "${OS_NAME}" | grep -q -i "centos"; then
+    	echo "[ERROR] Not support ${OS_NAME}." 1>&2
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Utility for ubuntu
+    #----------------------------------------------------------
+    IS_SETUP_APT_ENV=0
+    
+    setup_apt_envirnment()
+    {
+    	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+    		return 0
+    	fi
+    	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+    		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+    			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+    			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+    
+    			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+    			fi
+    			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+    			fi
+    			if [ ! -d /etc/apt/apt.conf.d ]; then
+    				mkdir -p /etc/apt/apt.conf.d
+    			fi
+    			{
+    				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+    				fi
+    				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+    				fi
+    			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+    		fi
+    	fi
+    	DEBIAN_FRONTEND=noninteractive
+    	export DEBIAN_FRONTEND
+    
+    	IS_SETUP_APT_ENV=1
+    
+    	return 0
+    }
+    
+    #----------------------------------------------------------
+    # Check curl command
+    #----------------------------------------------------------
+    if ! command -v curl >/dev/null 2>&1; then
     	#
     	# Set files and environments for Ubuntu/Debian
     	#
     	if echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-    		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-    			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-    				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-    				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-    
-    				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-    				fi
-    				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-    				fi
-    				if [ ! -d /etc/apt/apt.conf.d ]; then
-    					mkdir -p /etc/apt/apt.conf.d
-    				fi
-    				{
-    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-    				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-    			fi
-    		fi
-    		DEBIAN_FRONTEND=noninteractive
-    		export DEBIAN_FRONTEND
+    		setup_apt_envirnment
     	fi
     
     	#
@@ -1185,16 +1237,12 @@ data:
     			if apt-get update -y -q -q >/dev/null 2>&1 && apt-get install -y curl >/dev/null 2>&1; then
     				CURL_INSTALLED=1
     			fi
-    		elif echo "${OS_NAME}" | grep -q -i "centos"; then
-    			if yum update -y -q >/dev/null 2>&1 && yum install -y curl >/dev/null 2>&1; then
-    				CURL_INSTALLED=1
-    			fi
     		elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-    			if dnf update -y -q >/dev/null 2>&1 && dnf install -y curl >/dev/null 2>&1; then
+    			if dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 && dnf install -y curl >/dev/null 2>&1; then
     				CURL_INSTALLED=1
     			fi
     		else
-    			echo "[ERROR] Unknown OS type(${OS_NAME})."
+    			echo "[ERROR] Unknown OS type(${OS_NAME})." 1>&2
     			exit 1
     		fi
     		if [ "${CURL_INSTALLED}" -eq 0 ]; then
@@ -1212,22 +1260,23 @@ data:
     fi
     CURL_COMMAND=$(command -v curl | tr -d '\n')
     
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     # Parse options
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     REGISTER_MODE=
+    
     while [ $# -ne 0 ]; do
     	if [ -z "$1" ]; then
     		break
     
-    	elif [ "$1" = "-reg" ] || [ "$1" = "-REG" ] || [ "$1" = "--register" ] || [ "$1" = "--REGISTER" ]; then
+    	elif echo "$1" | grep -q -i -e "^-reg$" -e "^--register$"; then
     		if [ -n "${REGISTER_MODE}" ]; then
     			echo "[ERROR] ${PRGNAME} : already set \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
     			exit 1
     		fi
     		REGISTER_MODE=1
     
-    	elif [ "$1" = "-del" ] || [ "$1" = "-DEL" ] || [ "$1" = "--delete" ] || [ "$1" = "--DELETE" ]; then
+    	elif echo "$1" | grep -q -i -e "^-del$" -e "^--delete$"; then
     		if [ -n "${REGISTER_MODE}" ]; then
     			echo "[ERROR] ${PRGNAME} : already set \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
     			exit 1
@@ -1246,9 +1295,9 @@ data:
     	exit 1
     fi
     
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     # Main process
-    #------------------------------------------------------------------------------
+    #----------------------------------------------------------
     #
     # Call K2HR3 REST API
     #
@@ -1311,7 +1360,7 @@ data:
     # REVISION:
     #
     
-    #---------------------------------------------------------------
+    #----------------------------------------------------------
     # Input files
     #
     # This script loads the following files under '/etc/antpickax'
@@ -1348,18 +1397,18 @@ data:
     #								required. In this case, this file
     #								exists.
     #
-    #---------------------------------------------------------------
+    #----------------------------------------------------------
     
-    #
+    #----------------------------------------------------------
     # Program information
-    #
+    #----------------------------------------------------------
     PRGNAME=$(basename "$0")
     SRCTOP=$(dirname "$0")
     SRCTOP=$(cd "${SRCTOP}" || exit 1; pwd)
     
-    #
+    #----------------------------------------------------------
     # Common Variables
-    #
+    #----------------------------------------------------------
     ANTPICKAX_ETC_DIR="/etc/antpickax"
     VAR_LOG_DIR="/var/log"
     
@@ -1381,82 +1430,105 @@ data:
     LOOP_SLEEP_MAX=60
     LOOP_SLEEP_CUR=${LOOP_SLEEP_SHORT}
     
-    #
+    #----------------------------------------------------------
     # Utility - Output messgae
-    #
+    #----------------------------------------------------------
     prn_msg()
     {
     	MSG_DATE=$(date "+%Y-%m-%d %H:%M:%S")
     	if [ -t 1 ]; then
     		echo "${MSG_DATE} $*" >> "${VAR_LOG_DIR}"/"${LOG_FILE}"
     	else
-    		echo "${MSG_DATE} $*"
+    		echo "${MSG_DATE} $*" 1>&2
     	fi
     }
     
-    #
-    # Check curl command
-    #
-    if ! command -v curl >/dev/null 2>&1; then
-    	if [ ! -f /etc/os-release ]; then
-    		echo "[ERROR] Not found /etc/os-release file."
-    		exit 1
-    	fi
-    	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+    #----------------------------------------------------------
+    # Setup OS_NAME
+    #----------------------------------------------------------
+    if [ ! -f /etc/os-release ]; then
+    	prn_msg "[ERROR] Not found /etc/os-release file."
+    	exit 1
+    fi
+    OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
     
+    if echo "${OS_NAME}" | grep -q -i "centos"; then
+    	prn_msg "[ERROR] Not support ${OS_NAME}."
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Utility for ubuntu
+    #----------------------------------------------------------
+    IS_SETUP_APT_ENV=0
+    
+    setup_apt_envirnment()
+    {
+    	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+    		return 0
+    	fi
+    	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+    		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+    			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+    			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+    
+    			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+    			fi
+    			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+    			fi
+    			if [ ! -d /etc/apt/apt.conf.d ]; then
+    				mkdir -p /etc/apt/apt.conf.d
+    			fi
+    			{
+    				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+    				fi
+    				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+    				fi
+    			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+    		fi
+    	fi
+    	DEBIAN_FRONTEND=noninteractive
+    	export DEBIAN_FRONTEND
+    
+    	IS_SETUP_APT_ENV=1
+    
+    	return 0
+    }
+    
+    #----------------------------------------------------------
+    # Check curl command
+    #----------------------------------------------------------
+    if ! command -v curl >/dev/null 2>&1; then
     	if echo "${OS_NAME}" | grep -q -i "alpine"; then
     		if ! apk update -q --no-progress >/dev/null 2>&1 || ! apk add -q --no-progress --no-cache curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
+    			prn_msg "[ERROR] Failed to install curl."
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-    		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-    			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-    				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-    				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-    
-    				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-    				fi
-    				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-    				fi
-    				if [ ! -d /etc/apt/apt.conf.d ]; then
-    					mkdir -p /etc/apt/apt.conf.d
-    				fi
-    				{
-    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-    				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-    			fi
-    		fi
-    		DEBIAN_FRONTEND=noninteractive
-    		export DEBIAN_FRONTEND
-    
+    		setup_apt_envirnment
     		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
-    			exit 1
-    		fi
-    	elif echo "${OS_NAME}" | grep -q -i "centos"; then
-    		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
+    			prn_msg "[ERROR] Failed to install curl."
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-    		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
+    		if ! dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
+    			prn_msg "[ERROR] Failed to install curl."
     			exit 1
     		fi
     	else
-    		echo "[ERROR] Unknown OS type(${OS_NAME})."
+    		prn_msg "[ERROR] Unknown OS type(${OS_NAME})."
     		exit 1
     	fi
     fi
     CURL_COMMAND=$(command -v curl | tr -d '\n')
     
-    #
+    #----------------------------------------------------------
     # Main loop - This script is run as daemon
-    #
+    #----------------------------------------------------------
     FILE_NOT_UPDATED_YET=1
     while [ "${FILE_NOT_UPDATED_YET}" -le 1 ]; do
     	if [ "${FILE_NOT_UPDATED_YET}" -ne 1 ]; then
@@ -1895,13 +1967,60 @@ data:
     done
     
     #----------------------------------------------------------
-    # Get OS name
+    # Setup OS_NAME
     #----------------------------------------------------------
     if [ ! -f /etc/os-release ]; then
     	echo "[ERROR] Not found /etc/os-release file."
     	exit 1
     fi
     OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+    
+    if echo "${OS_NAME}" | grep -q -i "centos"; then
+    	echo "[ERROR] Not support ${OS_NAME}."
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Utility for ubuntu
+    #----------------------------------------------------------
+    IS_SETUP_APT_ENV=0
+    
+    setup_apt_envirnment()
+    {
+    	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+    		return 0
+    	fi
+    	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+    		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+    			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+    			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+    
+    			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+    			fi
+    			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+    			fi
+    			if [ ! -d /etc/apt/apt.conf.d ]; then
+    				mkdir -p /etc/apt/apt.conf.d
+    			fi
+    			{
+    				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+    				fi
+    				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+    				fi
+    			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+    		fi
+    	fi
+    	DEBIAN_FRONTEND=noninteractive
+    	export DEBIAN_FRONTEND
+    
+    	IS_SETUP_APT_ENV=1
+    
+    	return 0
+    }
     
     #----------------------------------------------------------
     # Preparation
@@ -1916,40 +2035,13 @@ data:
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-    		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-    			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-    				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-    				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-    
-    				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-    				fi
-    				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-    				fi
-    				if [ ! -d /etc/apt/apt.conf.d ]; then
-    					mkdir -p /etc/apt/apt.conf.d
-    				fi
-    				{
-    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-    				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-    			fi
-    		fi
-    		DEBIAN_FRONTEND=noninteractive
-    		export DEBIAN_FRONTEND
-    
+    		setup_apt_envirnment
     		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y dnsutils >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install dnsutils(nslookup)."
     			exit 1
     		fi
-    	elif echo "${OS_NAME}" | grep -q -i "centos"; then
-    		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y bind-utils >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install bind-utils(nslookup)."
-    			exit 1
-    		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-    		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y bind-utils >/dev/null 2>&1; then
+    		if ! dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 || ! dnf install -y bind-utils >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install bind-utils(nslookup)."
     			exit 1
     		fi
@@ -2244,55 +2336,78 @@ data:
     LOG_FILE="${CERT_WORK_DIR}/${PRGNAME}.log"
     
     #----------------------------------------------------------
+    # Setup OS_NAME
+    #----------------------------------------------------------
+    if [ ! -f /etc/os-release ]; then
+    	echo "[ERROR] Not found /etc/os-release file."
+    	exit 1
+    fi
+    OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+    
+    if echo "${OS_NAME}" | grep -q -i "centos"; then
+    	echo "[ERROR] Not support ${OS_NAME}."
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Utility for ubuntu
+    #----------------------------------------------------------
+    IS_SETUP_APT_ENV=0
+    
+    setup_apt_envirnment()
+    {
+    	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+    		return 0
+    	fi
+    	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+    		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+    			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+    			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+    
+    			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+    			fi
+    			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+    			fi
+    			if [ ! -d /etc/apt/apt.conf.d ]; then
+    				mkdir -p /etc/apt/apt.conf.d
+    			fi
+    			{
+    				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+    				fi
+    				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+    				fi
+    			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+    		fi
+    	fi
+    	DEBIAN_FRONTEND=noninteractive
+    	export DEBIAN_FRONTEND
+    
+    	IS_SETUP_APT_ENV=1
+    
+    	return 0
+    }
+    
+    #----------------------------------------------------------
     # Check openssl command
     #----------------------------------------------------------
     if ! command -v openssl >/dev/null 2>&1; then
-    	if [ ! -f /etc/os-release ]; then
-    		echo "[ERROR] Not found /etc/os-release file."
-    		exit 1
-    	fi
-    	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
-    
     	if echo "${OS_NAME}" | grep -q -i "alpine"; then
     		if ! apk update -q --no-progress >/dev/null 2>&1 || ! apk add -q --no-progress --no-cache openssl >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install openssl."
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-    		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-    			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-    				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-    				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-    
-    				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-    				fi
-    				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-    				fi
-    				if [ ! -d /etc/apt/apt.conf.d ]; then
-    					mkdir -p /etc/apt/apt.conf.d
-    				fi
-    				{
-    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-    				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-    			fi
-    		fi
-    		DEBIAN_FRONTEND=noninteractive
-    		export DEBIAN_FRONTEND
-    
+    		setup_apt_envirnment
     		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y openssl >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install openssl."
     			exit 1
     		fi
-    	elif echo "${OS_NAME}" | grep -q -i "centos"; then
-    		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y openssl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install openssl."
-    			exit 1
-    		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-    		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y openssl >/dev/null 2>&1; then
+    		if ! dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 || ! dnf install -y openssl >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install openssl."
     			exit 1
     		fi
@@ -2624,60 +2739,83 @@ data:
     fi
     
     #----------------------------------------------------------
+    # Setup OS_NAME
+    #----------------------------------------------------------
+    if [ ! -f /etc/os-release ]; then
+    	echo "[ERROR] Not found /etc/os-release file." 1>&2
+    	exit 1
+    fi
+    OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+    
+    if echo "${OS_NAME}" | grep -q -i "centos"; then
+    	echo "[ERROR] Not support ${OS_NAME}." 1>&2
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Utility for ubuntu
+    #----------------------------------------------------------
+    IS_SETUP_APT_ENV=0
+    
+    setup_apt_envirnment()
+    {
+    	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+    		return 0
+    	fi
+    	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+    		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+    			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+    			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+    
+    			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+    			fi
+    			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+    			fi
+    			if [ ! -d /etc/apt/apt.conf.d ]; then
+    				mkdir -p /etc/apt/apt.conf.d
+    			fi
+    			{
+    				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+    				fi
+    				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+    				fi
+    			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+    		fi
+    	fi
+    	DEBIAN_FRONTEND=noninteractive
+    	export DEBIAN_FRONTEND
+    
+    	IS_SETUP_APT_ENV=1
+    
+    	return 0
+    }
+    
+    #----------------------------------------------------------
     # Check curl command
     #----------------------------------------------------------
     if ! command -v curl >/dev/null 2>&1; then
-    	if [ ! -f /etc/os-release ]; then
-    		echo "[ERROR] Not found /etc/os-release file."
-    		exit 1
-    	fi
-    	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
-    
     	if echo "${OS_NAME}" | grep -q -i "alpine"; then
     		if ! apk update -q --no-progress >/dev/null 2>&1 || ! apk add -q --no-progress --no-cache curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
+    			echo "[ERROR] Failed to install curl." 1>&2
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-    		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-    			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-    				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-    				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-    
-    				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-    				fi
-    				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-    				fi
-    				if [ ! -d /etc/apt/apt.conf.d ]; then
-    					mkdir -p /etc/apt/apt.conf.d
-    				fi
-    				{
-    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-    				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-    			fi
-    		fi
-    		DEBIAN_FRONTEND=noninteractive
-    		export DEBIAN_FRONTEND
-    
+    		setup_apt_envirnment
     		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
-    			exit 1
-    		fi
-    	elif echo "${OS_NAME}" | grep -q -i "centos"; then
-    		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
+    			echo "[ERROR] Failed to install curl." 1>&2
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-    		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
+    		if ! dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
+    			echo "[ERROR] Failed to install curl." 1>&2
     			exit 1
     		fi
     	else
-    		echo "[ERROR] Unknown OS type(${OS_NAME})."
+    		echo "[ERROR] Unknown OS type(${OS_NAME})." 1>&2
     		exit 1
     	fi
     fi
@@ -2718,12 +2856,12 @@ data:
     	#	{"result":true,"message":"succeed","scoped":true,"token":"<token>"}
     	#
     	if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}/v1/user/tokens"); then
-    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code"
+    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with curl error code" 1>&2
     		rm -f "${RESPONSE_FILE}"
     		return 1
     	fi
     	if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "201" ]; then
-    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})"
+    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed with http exit code(${REQ_EXIT_CODE})" 1>&2
     		rm -f "${RESPONSE_FILE}"
     		return 1
     	fi
@@ -2733,7 +2871,7 @@ data:
     	REQ_SCOPED=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*scoped=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
     	REQ_TOKEN=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*token=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
     	if [ -z "${REQ_RESULT}" ] || [ -z "${REQ_SCOPED}" ] || [ -z "${REQ_TOKEN}" ] || [ "${REQ_RESULT}" != "true" ] || [ "${REQ_SCOPED}" != "true" ]; then
-    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\""
+    		echo "[ERROR] ${PRGNAME} : Request(get scoped token) is failed by \"${REQ_MESSAGE}\"" 1>&2
     		rm -f "${RESPONSE_FILE}"
     		return 1
     	fi
@@ -2776,12 +2914,12 @@ data:
     	rm -f "${RESPONSE_FILE}"
     
     	if ! REQ_EXIT_CODE=$(/bin/sh -c "${CURL_COMMAND} ${REQOPT_SILENT} ${REQOPT_CACERT} ${REQOPT_EXITCODE} ${REQOPT_OUTPUT} ${REQUEST_HEADERS} ${REQUEST_POST_BODY} -X POST ${K2HR3_API_URL}${REQUERST_URL_PATH}"); then
-    		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed with curl error code"
+    		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed with curl error code" 1>&2
     		rm -f "${RESPONSE_FILE}"
     		return 1
     	fi
     	if [ -z "${REQ_EXIT_CODE}" ] || [ "${REQ_EXIT_CODE}" != "201" ]; then
-    		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed with http exit code(${REQ_EXIT_CODE})"
+    		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed with http exit code(${REQ_EXIT_CODE})" 1>&2
     		rm -f "${RESPONSE_FILE}"
     		return 1
     	fi
@@ -2789,7 +2927,7 @@ data:
     	RESPONSE_RESULT=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*result=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
     	RESPONSE_MESSAGE=$(sed -e 's/:/=/g' -e 's/"//g' -e 's/,/ /g' -e 's/[{|}]//g' -e 's/.*message=[.|^ ]*//g' -e 's/ .*$//g' "${RESPONSE_FILE}")
     	if [ -z "${RESPONSE_RESULT}" ] || [ "${RESPONSE_RESULT}" != "true" ]; then
-    		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed by \"${RESPONSE_MESSAGE}\""
+    		echo "[ERROR] ${PRGNAME} : Post request(${REQUERST_URL_PATH}, \"$2\") is failed by \"${RESPONSE_MESSAGE}\"" 1>&2
     		rm -f "${RESPONSE_FILE}"
     		exit 1
     	fi
@@ -2843,7 +2981,7 @@ data:
     			"${INPUT_INI_FILE}"												\
     			> "${OUTPUT_INI_FILE}"; then
     
-    		echo "[ERROR] ${PRGNAME} : Failed expand ini file from ${INPUT_INI_FILE} to ${OUTPUT_INI_FILE}"
+    		echo "[ERROR] ${PRGNAME} : Failed expand ini file from ${INPUT_INI_FILE} to ${OUTPUT_INI_FILE}" 1>&2
     		rm -f "${OUTPUT_INI_FILE}"
     		return 1
     	fi
@@ -2855,7 +2993,7 @@ data:
     # Get scoped token for tenant
     #----------------------------------------------------------
     if [ ! -f "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}" ]; then
-    	echo "[ERROR] ${PRGNAME} : K2HR3 Unscoped token file(${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}) is not existed."
+    	echo "[ERROR] ${PRGNAME} : K2HR3 Unscoped token file(${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}) is not existed." 1>&2
     	exit 1
     fi
     K2HR3_UNSCOPED_TOKEN=$(tr -d '\n' < "${SEC_K2HR3_TOKEN_MOUNTPOINT}/${SEC_UTOKEN_FILENAME}")
@@ -3033,7 +3171,7 @@ data:
     #----------------------------------------------------------
     # Finish
     #----------------------------------------------------------
-    echo "[SUCCEED] ${PRGNAME} : Create K2HR3 Resource/Policy/Role for ${K2HDKC_CLUSTER_NAME}"
+    echo "[SUCCEED] ${PRGNAME} : Create K2HR3 Resource/Policy/Role for ${K2HDKC_CLUSTER_NAME}" 1>&2
     exit 0
     
     #
@@ -3139,55 +3277,78 @@ data:
     fi
     
     #----------------------------------------------------------
+    # Setup OS_NAME
+    #----------------------------------------------------------
+    if [ ! -f /etc/os-release ]; then
+    	echo "[ERROR] Not found /etc/os-release file."
+    	exit 1
+    fi
+    OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+    
+    if echo "${OS_NAME}" | grep -q -i "centos"; then
+    	echo "[ERROR] Not support ${OS_NAME}."
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Utility for ubuntu
+    #----------------------------------------------------------
+    IS_SETUP_APT_ENV=0
+    
+    setup_apt_envirnment()
+    {
+    	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+    		return 0
+    	fi
+    	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+    		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+    			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+    			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+    
+    			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+    			fi
+    			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+    			fi
+    			if [ ! -d /etc/apt/apt.conf.d ]; then
+    				mkdir -p /etc/apt/apt.conf.d
+    			fi
+    			{
+    				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+    				fi
+    				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+    				fi
+    			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+    		fi
+    	fi
+    	DEBIAN_FRONTEND=noninteractive
+    	export DEBIAN_FRONTEND
+    
+    	IS_SETUP_APT_ENV=1
+    
+    	return 0
+    }
+    
+    #----------------------------------------------------------
     # Check curl command
     #----------------------------------------------------------
     if ! command -v curl >/dev/null 2>&1; then
-    	if [ ! -f /etc/os-release ]; then
-    		echo "[ERROR] Not found /etc/os-release file."
-    		exit 1
-    	fi
-    	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
-    
     	if echo "${OS_NAME}" | grep -q -i "alpine"; then
     		if ! apk update -q --no-progress >/dev/null 2>&1 || ! apk add -q --no-progress --no-cache curl >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install curl."
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-    		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-    			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-    				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-    				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-    
-    				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-    				fi
-    				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-    				fi
-    				if [ ! -d /etc/apt/apt.conf.d ]; then
-    					mkdir -p /etc/apt/apt.conf.d
-    				fi
-    				{
-    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-    				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-    			fi
-    		fi
-    		DEBIAN_FRONTEND=noninteractive
-    		export DEBIAN_FRONTEND
-    
+    		setup_apt_envirnment
     		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y curl >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install curl."
     			exit 1
     		fi
-    	elif echo "${OS_NAME}" | grep -q -i "centos"; then
-    		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
-    			exit 1
-    		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-    		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
+    		if ! dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install curl."
     			exit 1
     		fi
@@ -3527,55 +3688,78 @@ data:
     fi
     
     #----------------------------------------------------------
+    # Setup OS_NAME
+    #----------------------------------------------------------
+    if [ ! -f /etc/os-release ]; then
+    	echo "[ERROR] Not found /etc/os-release file."
+    	exit 1
+    fi
+    OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+    
+    if echo "${OS_NAME}" | grep -q -i "centos"; then
+    	echo "[ERROR] Not support ${OS_NAME}."
+    	exit 1
+    fi
+    
+    #----------------------------------------------------------
+    # Utility for ubuntu
+    #----------------------------------------------------------
+    IS_SETUP_APT_ENV=0
+    
+    setup_apt_envirnment()
+    {
+    	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+    		return 0
+    	fi
+    	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+    		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+    			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+    			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+    
+    			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+    			fi
+    			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+    				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+    			fi
+    			if [ ! -d /etc/apt/apt.conf.d ]; then
+    				mkdir -p /etc/apt/apt.conf.d
+    			fi
+    			{
+    				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+    				fi
+    				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+    				fi
+    			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+    		fi
+    	fi
+    	DEBIAN_FRONTEND=noninteractive
+    	export DEBIAN_FRONTEND
+    
+    	IS_SETUP_APT_ENV=1
+    
+    	return 0
+    }
+    
+    #----------------------------------------------------------
     # Check curl command and install
     #----------------------------------------------------------
     if ! command -v curl >/dev/null 2>&1; then
-    	if [ ! -f /etc/os-release ]; then
-    		echo "[ERROR] Not found /etc/os-release file."
-    		exit 1
-    	fi
-    	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
-    
     	if echo "${OS_NAME}" | grep -q -i "alpine"; then
     		if ! apk update -q --no-progress >/dev/null 2>&1 || ! apk add -q --no-progress --no-cache curl >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install curl."
     			exit 1
     		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-    		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-    			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-    				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-    				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-    
-    				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-    				fi
-    				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-    					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-    				fi
-    				if [ ! -d /etc/apt/apt.conf.d ]; then
-    					mkdir -p /etc/apt/apt.conf.d
-    				fi
-    				{
-    					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-    					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-    				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-    			fi
-    		fi
-    		DEBIAN_FRONTEND=noninteractive
-    		export DEBIAN_FRONTEND
-    
+    		setup_apt_envirnment
     		if ! apt-get update -y -q -q >/dev/null 2>&1 || ! apt-get install -y curl >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install curl."
     			exit 1
     		fi
-    	elif echo "${OS_NAME}" | grep -q -i "centos"; then
-    		if ! yum update -y -q >/dev/null 2>&1 || ! yum install -y curl >/dev/null 2>&1; then
-    			echo "[ERROR] Failed to install curl."
-    			exit 1
-    		fi
     	elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-    		if ! dnf update -y -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
+    		if ! dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 || ! dnf install -y curl >/dev/null 2>&1; then
     			echo "[ERROR] Failed to install curl."
     			exit 1
     		fi
@@ -3961,7 +4145,7 @@ spec:
 
   initContainers:
     - name: chkinit-dummy
-      image: alpine:3.20
+      image: alpine:3.21
       env:
         - name: HTTP_PROXY
           value: ""
@@ -4041,7 +4225,7 @@ spec:
 
   containers:
     - name: chkk2hdkc-dummy
-      image: k2hdkc:1.0.14
+      image: k2hdkc:1.0.15
       env:
         - name: HTTP_PROXY
           value: ""
@@ -4116,7 +4300,7 @@ spec:
 
       containers:
       - name: setup-k2hr3-dummy-job
-        image: alpine:3.20
+        image: alpine:3.21
         env:
           - name: HTTP_PROXY
             value: ""
@@ -4202,7 +4386,7 @@ spec:
 
       containers:
       - name: unsetup-k2hr3-dummy-job
-        image: alpine:3.20
+        image: alpine:3.21
         env:
           - name: HTTP_PROXY
             value: ""

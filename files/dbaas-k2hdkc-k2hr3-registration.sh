@@ -19,13 +19,13 @@
 # REVISION:
 #
 
-#---------------------------------------------------------------
+#----------------------------------------------------------
 # Options
 #
 #	--register(-reg)	If specified, register with K2HR3 Role
 #	--delete(-del)		If specified, remove from K2HR3 Role
 #
-#---------------------------------------------------------------
+#----------------------------------------------------------
 # Input files
 #
 # This script loads the following files under '/etc/antpickax'
@@ -47,18 +47,18 @@
 #								required. In this case, this file
 #								exists.
 #
-#---------------------------------------------------------------
+#----------------------------------------------------------
 
-#
+#----------------------------------------------------------
 # Program information
-#
+#----------------------------------------------------------
 PRGNAME=$(basename "$0")
 SRCTOP=$(dirname "$0")
 SRCTOP=$(cd "${SRCTOP}" || exit 1; pwd)
 
-#
+#----------------------------------------------------------
 # Common Variables
-#
+#----------------------------------------------------------
 ANTPICKAX_ETC_DIR="/etc/antpickax"
 K2HR3_CA_FILE="ca.crt"
 K2HR3_FILE_REGISTER_URL="k2hr3-register-url"
@@ -66,9 +66,9 @@ K2HR3_FILE_ROLE="k2hr3-role"
 K2HR3_FILE_ROLE_TOKEN="k2hr3-role-token"
 K2HR3_FILE_APIARG="k2hr3-apiarg"
 
-#
+#----------------------------------------------------------
 # Check CA cert
-#
+#----------------------------------------------------------
 if [ -f "${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}" ]; then
 	K2HR3_CA_CERT_OPTION="--cacert"
 	K2HR3_CA_CERT_OPTION_VALUE="${ANTPICKAX_ETC_DIR}/${K2HR3_CA_FILE}"
@@ -77,57 +77,86 @@ else
 	K2HR3_CA_CERT_OPTION_VALUE=""
 fi
 
-#
+#----------------------------------------------------------
 # Get K2HR3 ROLE TOKEN
-#
+#----------------------------------------------------------
 if ! K2HDKC_ROLE_TOKEN=$(cat ${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE_TOKEN} 2>/dev/null); then
 	echo "[ERROR] ${PRGNAME} : Could not load role token from secret." 1>&2
 	exit 1
 fi
 
-#
+#----------------------------------------------------------
 # Get Parameters from files
-#
+#----------------------------------------------------------
 K2HR3_REGISTER_URL=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_REGISTER_URL}" 2>/dev/null)
 K2HR3_ROLE=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_ROLE}" 2>/dev/null)
 K2HR3_APIARG=$(cat "${ANTPICKAX_ETC_DIR}/${K2HR3_FILE_APIARG}" 2>/dev/null)
 
-#
-# Check curl command
-#
-if ! command -v curl >/dev/null 2>&1; then
-	if [ ! -f /etc/os-release ]; then
-		echo "[ERROR] Not found /etc/os-release file."
-		exit 1
-	fi
-	OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
+#----------------------------------------------------------
+# Setup OS_NAME
+#----------------------------------------------------------
+if [ ! -f /etc/os-release ]; then
+	echo "[ERROR] Not found /etc/os-release file." 1>&2
+	exit 1
+fi
+OS_NAME=$(grep '^ID[[:space:]]*=[[:space:]]*' /etc/os-release | sed -e 's|^ID[[:space:]]*=[[:space:]]*||g' -e 's|^[[:space:]]*||g' -e 's|[[:space:]]*$||g' -e 's|"||g')
 
+if echo "${OS_NAME}" | grep -q -i "centos"; then
+	echo "[ERROR] Not support ${OS_NAME}." 1>&2
+	exit 1
+fi
+
+#----------------------------------------------------------
+# Utility for ubuntu
+#----------------------------------------------------------
+IS_SETUP_APT_ENV=0
+
+setup_apt_envirnment()
+{
+	if [ "${IS_SETUP_APT_ENV}" -eq 1 ]; then
+		return 0
+	fi
+	if [ -n "${HTTP_PROXY}" ] || [ -n "${http_proxy}" ] || [ -n "${HTTPS_PROXY}" ] || [ -n "${https_proxy}" ]; then
+		if [ ! -f /etc/apt/apt.conf.d/00-aptproxy.conf ] || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
+			_FOUND_HTTP_PROXY=$(if [ -n "${HTTP_PROXY}" ]; then echo "${HTTP_PROXY}"; elif [ -n "${http_proxy}" ]; then echo "${http_proxy}"; else echo ''; fi)
+			_FOUND_HTTPS_PROXY=$(if [ -n "${HTTPS_PROXY}" ]; then echo "${HTTPS_PROXY}"; elif [ -n "${https_proxy}" ]; then echo "${https_proxy}"; else echo ''; fi)
+
+			if [ -n "${_FOUND_HTTP_PROXY}" ] && echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
+				_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
+			fi
+			if [ -n "${_FOUND_HTTPS_PROXY}" ] && echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
+				_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
+			fi
+			if [ ! -d /etc/apt/apt.conf.d ]; then
+				mkdir -p /etc/apt/apt.conf.d
+			fi
+			{
+				if [ -n "${_FOUND_HTTP_PROXY}" ]; then
+					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
+				fi
+				if [ -n "${_FOUND_HTTPS_PROXY}" ]; then
+					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
+				fi
+			} >> /etc/apt/apt.conf.d/00-aptproxy.conf
+		fi
+	fi
+	DEBIAN_FRONTEND=noninteractive
+	export DEBIAN_FRONTEND
+
+	IS_SETUP_APT_ENV=1
+
+	return 0
+}
+
+#----------------------------------------------------------
+# Check curl command
+#----------------------------------------------------------
+if ! command -v curl >/dev/null 2>&1; then
 	#
 	# Set files and environments for Ubuntu/Debian
 	#
 	if echo "${OS_NAME}" | grep -q -i -e "ubuntu" -e "debian"; then
-		if env | grep -i -e '^http_proxy' -e '^https_proxy'; then
-			if ! test -f /etc/apt/apt.conf.d/00-aptproxy.conf || ! grep -q -e 'Acquire::http::Proxy' -e 'Acquire::https::Proxy' /etc/apt/apt.conf.d/00-aptproxy.conf; then
-				_FOUND_HTTP_PROXY=$(env | grep -i '^http_proxy' | head -1 | sed -e 's#^http_proxy=##gi')
-				_FOUND_HTTPS_PROXY=$(env | grep -i '^https_proxy' | head -1 | sed -e 's#^https_proxy=##gi')
-
-				if echo "${_FOUND_HTTP_PROXY}" | grep -q -v '://'; then
-					_FOUND_HTTP_PROXY="http://${_FOUND_HTTP_PROXY}"
-				fi
-				if echo "${_FOUND_HTTPS_PROXY}" | grep -q -v '://'; then
-					_FOUND_HTTPS_PROXY="http://${_FOUND_HTTPS_PROXY}"
-				fi
-				if [ ! -d /etc/apt/apt.conf.d ]; then
-					mkdir -p /etc/apt/apt.conf.d
-				fi
-				{
-					echo "Acquire::http::Proxy \"${_FOUND_HTTP_PROXY}\";"
-					echo "Acquire::https::Proxy \"${_FOUND_HTTPS_PROXY}\";"
-				} >> /etc/apt/apt.conf.d/00-aptproxy.conf
-			fi
-		fi
-		DEBIAN_FRONTEND=noninteractive
-		export DEBIAN_FRONTEND
+		setup_apt_envirnment
 	fi
 
 	#
@@ -149,16 +178,12 @@ if ! command -v curl >/dev/null 2>&1; then
 			if apt-get update -y -q -q >/dev/null 2>&1 && apt-get install -y curl >/dev/null 2>&1; then
 				CURL_INSTALLED=1
 			fi
-		elif echo "${OS_NAME}" | grep -q -i "centos"; then
-			if yum update -y -q >/dev/null 2>&1 && yum install -y curl >/dev/null 2>&1; then
-				CURL_INSTALLED=1
-			fi
 		elif echo "${OS_NAME}" | grep -q -i -e "rocky" -e "fedora"; then
-			if dnf update -y -q >/dev/null 2>&1 && dnf install -y curl >/dev/null 2>&1; then
+			if dnf update -y --nobest --skip-broken -q >/dev/null 2>&1 && dnf install -y curl >/dev/null 2>&1; then
 				CURL_INSTALLED=1
 			fi
 		else
-			echo "[ERROR] Unknown OS type(${OS_NAME})."
+			echo "[ERROR] Unknown OS type(${OS_NAME})." 1>&2
 			exit 1
 		fi
 		if [ "${CURL_INSTALLED}" -eq 0 ]; then
@@ -176,22 +201,23 @@ if ! command -v curl >/dev/null 2>&1; then
 fi
 CURL_COMMAND=$(command -v curl | tr -d '\n')
 
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 # Parse options
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 REGISTER_MODE=
+
 while [ $# -ne 0 ]; do
 	if [ -z "$1" ]; then
 		break
 
-	elif [ "$1" = "-reg" ] || [ "$1" = "-REG" ] || [ "$1" = "--register" ] || [ "$1" = "--REGISTER" ]; then
+	elif echo "$1" | grep -q -i -e "^-reg$" -e "^--register$"; then
 		if [ -n "${REGISTER_MODE}" ]; then
 			echo "[ERROR] ${PRGNAME} : already set \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
 			exit 1
 		fi
 		REGISTER_MODE=1
 
-	elif [ "$1" = "-del" ] || [ "$1" = "-DEL" ] || [ "$1" = "--delete" ] || [ "$1" = "--DELETE" ]; then
+	elif echo "$1" | grep -q -i -e "^-del$" -e "^--delete$"; then
 		if [ -n "${REGISTER_MODE}" ]; then
 			echo "[ERROR] ${PRGNAME} : already set \"--register(-reg)\" or \"--delete(-del)\" option." 1>&2
 			exit 1
@@ -210,9 +236,9 @@ if [ -z "${REGISTER_MODE}" ]; then
 	exit 1
 fi
 
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 # Main process
-#------------------------------------------------------------------------------
+#----------------------------------------------------------
 #
 # Call K2HR3 REST API
 #

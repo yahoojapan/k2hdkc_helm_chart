@@ -190,7 +190,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 	{{- else }}
 		{{- $tmpdkcorg  := default "antpickax" .Values.images.default.organization }}
 		{{- $tmpdkcname := "k2hdkc" }}
-		{{- $tmpdkcver  := "1.0.14" }}
+		{{- $tmpdkcver  := "1.0.15" }}
 		{{- if .Values.images.dkc.organization }}
 			{{- $tmpdkcorg = .Values.images.dkc.organization }}
 		{{- end }}
@@ -215,7 +215,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 	{{- else }}
 		{{- $tmpchmpxorg  := default "antpickax" .Values.images.default.organization }}
 		{{- $tmpchmpxname := "chmpx" }}
-		{{- $tmpchmpxver  := "1.0.106" }}
+		{{- $tmpchmpxver  := "1.0.108" }}
 		{{- if .Values.images.chmpx.organization }}
 			{{- $tmpchmpxorg = .Values.images.chmpx.organization }}
 		{{- end }}
@@ -240,7 +240,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 	{{- else }}
 		{{- $tmpinitorg  := "" }}
 		{{- $tmpinitname := "alpine" }}
-		{{- $tmpinitver  := "3.20" }}
+		{{- $tmpinitver  := "3.21" }}
 		{{- if .Values.images.init.organization }}
 			{{- $tmpinitorg = .Values.images.init.organization }}
 		{{- end }}
