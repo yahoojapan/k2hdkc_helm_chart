@@ -74,6 +74,10 @@
           "description": "[optional] Specifies the base domain name for the k2hr3 cluster. The default is empty, if empty k8s.domain is used.",
           "type": "string"
         },
+        "k2hr3Tenant": {
+          "description": "[optional] Specify k2hr3 tenant name for k2hdkc cluster. If empty, the namespace of kubernetes is set as default.",
+          "type": "string"
+        },
 
         "server": {
           "description": "[optional] The setting for the servers of the K2HDKC cluster.",

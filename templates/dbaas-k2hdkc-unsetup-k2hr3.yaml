@@ -79,7 +79,7 @@ spec:
           - name: K2HR3_API_URL
             value: "https://{{ include "k2hdkc.r3apiIntSvcFullname" . }}:{{ include "k2hdkc.r3apiIntPort" . }}"
           - name: K2HR3_TENANT
-            value: "{{ include "k2hdkc.k8sNamespace" . }}"
+            value: "{{ include "k2hdkc.k2hr3Tenant" . }}"
           - name: SEC_CA_MOUNTPOINT
             value: "{{ .Values.mountPoint.ca }}"
           - name: SEC_K2HR3_TOKEN_MOUNTPOINT

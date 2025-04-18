@@ -62,6 +62,9 @@ antpickax:
 #	baseDomain			Specify the domain name of kubernetes. This
 #						value is usually empty. If empty, k8s.domain
 #						will be used.
+#	k2hr3Tenant			Specify k2hr3 tenant name for k2hdkc cluster.
+#						If empty, the namespace of kubernetes is set as
+#                   	default.
 #	server.count		Specifies the number of k2hdkc servers.
 #	server.port			Specifies the port number of k2hdkc servers.
 #	server.ctlport		Specifies the control port number of k2hdkc
@@ -100,6 +103,7 @@ dbaas:
   clusterName: ""
   startManual: false
   baseDomain: ""
+  k2hr3Tenant: ""
   server:
     count: 2
     port: 8020

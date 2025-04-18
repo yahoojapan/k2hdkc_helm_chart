@@ -1010,8 +1010,8 @@ data:
     #
     # Make K2HR3 YRN for role and resource
     #
-    K2HDKC_ROLE_YRN=${K2HR3_YRN_PREFIX}${K2HDKC_NAMESPACE}:role:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
-    K2HDKC_RESOURCE_YRN=${K2HR3_YRN_PREFIX}${K2HDKC_NAMESPACE}:resource:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
+    K2HDKC_ROLE_YRN=${K2HR3_YRN_PREFIX}${K2HR3_TENANT}:role:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
+    K2HDKC_RESOURCE_YRN=${K2HR3_YRN_PREFIX}${K2HR3_TENANT}:resource:${K2HDKC_CLUSTER_NAME}/${K2HDKC_MODE}
     
     #----------------------------------------------------------
     # Save parameters for accessing to K2HR3

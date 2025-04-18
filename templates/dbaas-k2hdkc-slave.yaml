@@ -165,7 +165,7 @@ spec:
             - name: K2HR3_API_URL
               value: "https://{{ include "k2hdkc.r3apiIntSvcFullname" . }}:{{ include "k2hdkc.r3apiIntPort" . }}"
             - name: K2HR3_TENANT
-              value: "{{ include "k2hdkc.k8sNamespace" . }}"
+              value: "{{ include "k2hdkc.k2hr3Tenant" . }}"
             - name: K2HDKC_DOMAIN
               value: "{{ include "k2hdkc.dbaasBaseDomain" . }}"
             - name: K2HDKC_CLUSTER_NAME
