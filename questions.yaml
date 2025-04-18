@@ -52,6 +52,16 @@ questions:
   min_length: 0
   max_length: 1023
 
+- variable: dbaas.k2hr3Tenant
+  default: ""
+  label: "K2HR3 Tenant name for K2HDKC cluster"
+  description: "Specify K2HR3 tenant name for K2HDKC cluster. You can specify this if using custom OIDC and a tenant name outside the kubernets namespace. If empty, the namespace of kubernetes is set as default."
+  type: string
+  required: true
+  group: "K2HR3 System to use"
+  min_length: 0
+  max_length: 1023
+
 #
 # K2HDKC Server
 #

@@ -85,6 +85,16 @@
 
 {{-
 /*---------------------------------------------------------
+* Set k2hr3 tenant name for dbaas.
+*
+*/}}
+{{- define "k2hdkc.k2hr3Tenant" -}}
+	{{- $tmpname := default (include "k2hdkc.k8sNamespace" .) .Values.dbaas.k2hr3Tenant }}
+	{{- printf "%s" $tmpname }}
+{{- end }}
+
+{{-
+/*---------------------------------------------------------
 * Set base domain(fqdn) for dbaas.
 *
 */}}
