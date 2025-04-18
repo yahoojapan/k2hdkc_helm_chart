@@ -47,6 +47,10 @@ file ready.
 -->
 # Change Log for K2HDKC Helm Chart
 
+## [1.0.9] - 2025-04-18
+### Changed
+- Added dbaas.k2hr3Tenant option
+
 ## [1.0.8] - 2025-03-27
 ### Changed
 - Updated dependency packages
@@ -91,6 +95,7 @@ file ready.
 ### Changed
 - Initial Commit and publishing
 
+[1.0.9]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.8...v1.0.9
 [1.0.8]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/yahoojapan/k2hdkc_helm_chart/compare/v1.0.5...v1.0.6
