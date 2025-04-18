@@ -27,6 +27,7 @@ The following options/values are supported. See values.yaml for more detailed do
 | `dbaas.clusterName`                  | optional     | Specify a cluster name for K2HDKC, default is empty. If not set, a name is Release name(.Release.Name).                             | ""      |
 | `dbaas.startManual`                  | optional     | Specifies whether to boot the k2hdkc processes manually. This is a flag for debugging.                                              | false   |
 | `dbaas.baseDomain`                   | optional     | Specifies the base domain name for the k2hr3 cluster. The default is empty, if empty k8s.domain is used.                            | ""      |
+| `dbaas.k2hr3Tenant`                  | optional     | Specify K2HR3 tenant name for K2HDKC cluster. If empty, the namespace of kubernetes is set as default.                              | ""      |
 | `dbaas.server.count`                 | optional     | Specify the server count in K2HKDC cluster.                                                                                         | 2       |
 | `dbaas.server.port`                  | optional     | Specify the port number for K2HDKC servers.                                                                                         | 8020    |
 | `dbaas.server.ctlport`               | optional     | Specify the control port number for K2HDKC servers.                                                                                 | 8021    |
