@@ -89,7 +89,7 @@ spec:
 
       initContainers:
         - name: svrinit-dummy
-          image: alpine:3.21
+          image: alpine:3.22
           env:
             - name: HTTP_PROXY
               value: ""
@@ -169,7 +169,7 @@ spec:
 
       containers:
         - name: svrupdate-dummy
-          image: alpine:3.21
+          image: alpine:3.22
           env:
             - name: HTTP_PROXY
               value: ""
@@ -200,7 +200,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: svrchmpx-dummy
-          image: chmpx:1.0.109
+          image: chmpx:1.0.110
           env:
             - name: HTTP_PROXY
               value: ""
@@ -230,7 +230,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: svrk2hdkc-dummy
-          image: k2hdkc:1.0.16
+          image: k2hdkc:1.0.17
           env:
             - name: HTTP_PROXY
               value: ""
@@ -313,7 +313,7 @@ spec:
 
       initContainers:
         - name: slvinit-dummy
-          image: alpine:3.21
+          image: alpine:3.22
           env:
             - name: HTTP_PROXY
               value: ""
@@ -393,7 +393,7 @@ spec:
 
       containers:
         - name: slvupdate-dummy
-          image: alpine:3.21
+          image: alpine:3.22
           env:
             - name: HTTP_PROXY
               value: ""
@@ -424,7 +424,7 @@ spec:
                 command: ["/bin/sh", "/configmap/dbaas-k2hdkc-k2hr3-registration.sh", "-del"]
 
         - name: slvchmpx-dummy
-          image: chmpx:1.0.109
+          image: chmpx:1.0.110
           env:
             - name: HTTP_PROXY
               value: ""
@@ -454,7 +454,7 @@ spec:
           args: ["/configmap/dbaas-k2hdkc-chmpxproc-wrap.sh"]
 
         - name: slvk2hdkc-dummy
-          image: k2hdkc:1.0.16
+          image: k2hdkc:1.0.17
           env:
             - name: HTTP_PROXY
               value: ""
@@ -2060,7 +2060,7 @@ data:
     # Sleep time ajusting
     #
     for _ONE_NAME in $(echo "${ALL_HOST_NAMES}" | sort); do
-    	if echo "${_ONE_NAME}" | grep -q "$(hostname)"; then
+    	if echo "${_ONE_NAME}" | grep -q "$(hostname -f)"; then
     		break
     	fi
     	SLEEP_GAP=$((SLEEP_GAP + 2))
@@ -4145,7 +4145,7 @@ spec:
 
   initContainers:
     - name: chkinit-dummy
-      image: alpine:3.21
+      image: alpine:3.22
       env:
         - name: HTTP_PROXY
           value: ""
@@ -4225,7 +4225,7 @@ spec:
 
   containers:
     - name: chkk2hdkc-dummy
-      image: k2hdkc:1.0.16
+      image: k2hdkc:1.0.17
       env:
         - name: HTTP_PROXY
           value: ""
@@ -4300,7 +4300,7 @@ spec:
 
       containers:
       - name: setup-k2hr3-dummy-job
-        image: alpine:3.21
+        image: alpine:3.22
         env:
           - name: HTTP_PROXY
             value: ""
@@ -4386,7 +4386,7 @@ spec:
 
       containers:
       - name: unsetup-k2hr3-dummy-job
-        image: alpine:3.21
+        image: alpine:3.22
         env:
           - name: HTTP_PROXY
             value: ""

@@ -121,7 +121,7 @@
               "exclusiveMinimum": 0
             },
             "image": {
-              "description": "[optional] Specifies the docker image for k2hdkc slave container. If empty, antpickax/k2hdkc:1.0.3 is set as default.",
+              "description": "[optional] Specifies the docker image for k2hdkc slave container. If empty, antpickax/k2hdkc:1.0.17 is set as default.",
               "type": "string"
             },
             "command": {
